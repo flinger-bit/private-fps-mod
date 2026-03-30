@@ -1,20 +1,59 @@
-name: Build Mod
+name: Build Geode Mod PRO
 
-on: [push]
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      # 🔹 Clonar repo
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build Geode Mod
-        uses: geode-sdk/build-geode-mod@main
-        id: build
+      # 🔹 Debug info (IMPORTANTE)
+      - name: Debug info
+        run: |
+          echo "Sistema:"
+          uname -a
+          echo "Archivos:"
+          ls -la
 
-      - name: Upload
+      # 🔹 Instalar Geode CLI limpio
+      - name: Install Geode CLI
+        run: |
+          curl -sSL https://github.com/geode-sdk/cli/releases/latest/download/geode-linux.zip -o geode.zip
+          unzip geode.zip
+          chmod +x geode
+          sudo mv geode /usr/local/bin/
+
+      # 🔹 Verificar instalación
+      - name: Check Geode
+        run: geode --version
+
+      # 🔹 Instalar binarios Android
+      - name: Setup Android
+        run: geode sdk install-binaries -p android64
+
+      # 🔹 Build del mod
+      - name: Build mod
+        run: |
+          geode build -p android64 || (echo "❌ BUILD FALLÓ" && exit 1)
+
+      # 🔹 Verificar archivo .geode
+      - name: Check output
+        run: |
+          echo "Buscando archivo .geode..."
+          find . -name "*.geode" || (echo "❌ NO SE GENERÓ EL MOD" && exit 1)
+
+      # 🔹 Subir archivo (VERSIÓN NUEVA)
+      - name: Upload mod
         uses: actions/upload-artifact@v4
         with:
-          name: mod
-          path: ${{ steps.build.outputs.build-output }}
+          name: geode-mod
+          path: |
+            **/*.geode
+          if-no-files-found: error
