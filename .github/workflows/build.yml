@@ -1,4 +1,4 @@
-name: Build Geode Mod PRO
+name: Build Geode Mod FIXED
 
 on:
   push:
@@ -11,18 +11,17 @@ jobs:
 
     steps:
       # 🔹 Clonar repo
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 🔹 Debug info (IMPORTANTE)
-      - name: Debug info
-        run: |
-          echo "Sistema:"
-          uname -a
-          echo "Archivos:"
-          ls -la
+      # 🔹 Forzar Node 24 (evita errores futuros)
+      - name: Fix Node version
+        run: echo "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true" >> $GITHUB_ENV
 
-      # 🔹 Instalar Geode CLI limpio
+      # 🔹 Instalar dependencias básicas
+      - name: Install dependencies
+        run: sudo apt update && sudo apt install -y unzip curl git
+
+      # 🔹 Instalar Geode CLI
       - name: Install Geode CLI
         run: |
           curl -sSL https://github.com/geode-sdk/cli/releases/latest/download/geode-linux.zip -o geode.zip
@@ -30,30 +29,35 @@ jobs:
           chmod +x geode
           sudo mv geode /usr/local/bin/
 
-      # 🔹 Verificar instalación
+      # 🔹 Verificar CLI
       - name: Check Geode
         run: geode --version
 
+      # 🔴 🔥 INSTALAR SDK (LO QUE TE FALTABA)
+      - name: Install SDK
+        run: geode sdk install
+
       # 🔹 Instalar binarios Android
-      - name: Setup Android
+      - name: Install Android binaries
         run: geode sdk install-binaries -p android64
 
-      # 🔹 Build del mod
+      # 🔹 Build con debug fuerte
       - name: Build mod
         run: |
-          geode build -p android64 || (echo "❌ BUILD FALLÓ" && exit 1)
+          set -e
+          echo "🔥 Iniciando build..."
+          geode build -p android64
 
-      # 🔹 Verificar archivo .geode
+      # 🔹 Verificar salida
       - name: Check output
         run: |
-          echo "Buscando archivo .geode..."
-          find . -name "*.geode" || (echo "❌ NO SE GENERÓ EL MOD" && exit 1)
+          echo "🔍 Buscando .geode..."
+          find . -name "*.geode"
 
-      # 🔹 Subir archivo (VERSIÓN NUEVA)
+      # 🔹 Subir mod
       - name: Upload mod
         uses: actions/upload-artifact@v4
         with:
           name: geode-mod
-          path: |
-            **/*.geode
+          path: "**/*.geode"
           if-no-files-found: error
