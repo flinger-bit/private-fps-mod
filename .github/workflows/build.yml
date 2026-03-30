@@ -57,9 +57,7 @@ jobs:
         shell: bash
         run: |
           set -Eeuo pipefail
-          if ! command -v cargo >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
-          fi
+          curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           source "$HOME/.cargo/env"
           rustup toolchain install stable --profile minimal
@@ -101,12 +99,11 @@ jobs:
           retry 3 cargo install --locked --force --git https://github.com/geode-sdk/cli --tag "${GEODE_CLI_VERSION}"
           geode --version
 
-      - name: Write helper script
+      - name: Setup Geode profile
         shell: bash
         run: |
           set -Eeuo pipefail
-          cat > "$RUNNER_TEMP/geode_helpers.sh" <<'EOF'
-          set -Eeuo pipefail
+          source "$HOME/.cargo/env"
 
           retry() {
             local attempts="$1"
@@ -121,144 +118,113 @@ jobs:
             done
           }
 
-          setup_profile() {
-            local profile_dir="${GEODE_PROFILE_DIR:-$HOME/GeometryDash}"
-            local profile_name="${GEODE_PROFILE_NAME:-ci}"
-
-            mkdir -p "$profile_dir"
+          setup_with_pipe() {
             mkdir -p "$HOME/.config/geode"
 
-            if command -v expect >/dev/null 2>&1; then
-              GEODE_PROFILE_DIR="$profile_dir" GEODE_PROFILE_NAME="$profile_name" expect <<'EXPECT'
-              log_user 1
-              set timeout 180
-              set profile_dir $env(GEODE_PROFILE_DIR)
-              set profile_name $env(GEODE_PROFILE_NAME)
-
-              spawn geode config setup
-              while {1} {
-                expect {
-                  -re {(?i)(path|directory|folder|location|install)} {
-                    send -- "$profile_dir\r"
-                    exp_continue
-                  }
-                  -re {(?i)(name|profile)} {
-                    send -- "$profile_name\r"
-                    exp_continue
-                  }
-                  -re {(?i)(y/n|yes/no|\[y/N\]|\(y/N\))} {
-                    send -- "y\r"
-                    exp_continue
-                  }
-                  eof { break }
-                  timeout { exit 1 }
-                }
-              }
-EXPECT
-              return 0
-            fi
-
-            printf '%s\n%s\n%s\n%s\n%s\n' \
-              "$profile_dir" \
-              "$profile_name" \
-              "y" \
+            printf '%s\n%s\n%s\n%s\n' \
+              "$HOME/GeometryDash" \
+              "ci" \
               "y" \
               "y" | geode config setup
           }
 
-          run_geode() {
-            local label="$1"
-            shift
-            local attempt=1
-            local log
-            log="$(mktemp)"
+          if ! retry 3 setup_with_pipe; then
+            if command -v expect >/dev/null 2>&1; then
+              expect -c "set timeout 180; spawn geode config setup; expect { -re {(?i)(path|directory|folder|location|install)} { send -- \"$HOME/GeometryDash\r\"; exp_continue } -re {(?i)(name|profile)} { send -- \"ci\r\"; exp_continue } -re {(?i)(y/n|yes/no|\\[y/N\\]|\\(y/N\\))} { send -- \"y\r\"; exp_continue } eof { exit 0 } timeout { exit 1 } }"
+            else
+              echo 'Geode profile setup failed'
+              exit 1
+            fi
+          fi
 
-            while true; do
-              echo "Running: $label (attempt $attempt)"
-              if "$@" 2>&1 | tee "$log"; then
-                rm -f "$log"
-                return 0
-              fi
-
-              if grep -qi "No Geode profiles found" "$log"; then
-                setup_profile || true
-              fi
-
-              if (( attempt >= 3 )); then
-                cat "$log"
-                rm -f "$log"
-                return 1
-              fi
-
-              attempt=$((attempt + 1))
-              sleep $((attempt * 5))
-            done
-          }
-
-          install_ndk() {
-            local version="$1"
-            local url="$2"
-            local workdir="$RUNNER_TEMP/ndk-${version}"
-
-            rm -rf "$workdir"
-            mkdir -p "$workdir"
-
-            curl -fsSL --retry 5 --retry-all-errors -o "$workdir/ndk.zip" "$url"
-            unzip -q "$workdir/ndk.zip" -d "$workdir"
-
-            local extracted="$workdir/android-ndk-${version}"
-            test -d "$extracted/toolchains/llvm/prebuilt/linux-x86_64"
-
-            rm -rf "$ANDROID_NDK_ROOT"
-            mv "$extracted" "$ANDROID_NDK_ROOT"
-          }
-          EOF
-          chmod +x "$RUNNER_TEMP/geode_helpers.sh"
-
-      - name: Setup Geode profile
-        shell: bash
-        run: |
-          set -Eeuo pipefail
-          source "$HOME/.cargo/env"
-          source "$RUNNER_TEMP/geode_helpers.sh"
-          retry 3 setup_profile
+          test -d "$HOME/.config/geode"
 
       - name: Install Geode SDK
         shell: bash
         run: |
           set -Eeuo pipefail
           source "$HOME/.cargo/env"
-          source "$RUNNER_TEMP/geode_helpers.sh"
-          run_geode "Install Geode SDK" geode sdk install
+
+          retry() {
+            local attempts="$1"
+            shift
+            local attempt=1
+            until "$@"; do
+              if (( attempt >= attempts )); then
+                return 1
+              fi
+              attempt=$((attempt + 1))
+              sleep $((attempt * 5))
+            done
+          }
+
+          retry 3 geode sdk install
 
       - name: Install Android64 binaries
         shell: bash
         run: |
           set -Eeuo pipefail
           source "$HOME/.cargo/env"
-          source "$RUNNER_TEMP/geode_helpers.sh"
-          run_geode "Install Android64 binaries" geode sdk install-binaries -p android64
+
+          retry() {
+            local attempts="$1"
+            shift
+            local attempt=1
+            until "$@"; do
+              if (( attempt >= attempts )); then
+                return 1
+              fi
+              attempt=$((attempt + 1))
+              sleep $((attempt * 5))
+            done
+          }
+
+          retry 3 geode sdk install-binaries -p android64
 
       - name: Install Android NDK
         shell: bash
         run: |
           set -Eeuo pipefail
-          source "$RUNNER_TEMP/geode_helpers.sh"
-          install_ndk "${ANDROID_NDK_VERSION}" "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
-          test -d "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64"
+          NDK_URL="https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+          WORKDIR="$GITHUB_WORKSPACE/.ndk-download"
+
+          rm -rf "$WORKDIR"
+          mkdir -p "$WORKDIR"
+
+          curl -fsSL --retry 5 --retry-all-errors -o "$WORKDIR/ndk.zip" "$NDK_URL"
+          unzip -q "$WORKDIR/ndk.zip" -d "$WORKDIR"
+
+          test -d "$WORKDIR/android-ndk-${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64"
+
+          rm -rf "$ANDROID_NDK_ROOT"
+          mv "$WORKDIR/android-ndk-${ANDROID_NDK_VERSION}" "$ANDROID_NDK_ROOT"
 
       - name: Build mod
         shell: bash
         run: |
           set -Eeuo pipefail
           source "$HOME/.cargo/env"
-          source "$RUNNER_TEMP/geode_helpers.sh"
-          run_geode "Build Geode mod" geode build -p android64
+
+          retry() {
+            local attempts="$1"
+            shift
+            local attempt=1
+            until "$@"; do
+              if (( attempt >= attempts )); then
+                return 1
+              fi
+              attempt=$((attempt + 1))
+              sleep $((attempt * 5))
+            done
+          }
+
+          retry 3 geode build -p android64
 
       - name: Verify .geode output
         shell: bash
         run: |
           set -Eeuo pipefail
+
           GEODE_FILE="$(find build-android64 -type f -name '*.geode' -print -quit 2>/dev/null || true)"
           if [ -z "$GEODE_FILE" ]; then
             GEODE_FILE="$(find . -type f -name '*.geode' -print -quit 2>/dev/null || true)"
