@@ -22,8 +22,6 @@ jobs:
       RUST_BACKTRACE: full
       GEODE_CLI_VERSION: v3.7.4
       ANDROID_NDK_VERSION: r29
-      ANDROID_NDK_ROOT: ${{ runner.temp }}/android-ndk-r29
-      CPM_SOURCE_CACHE: ${{ runner.temp }}/cpm-cache
 
     steps:
       - name: Checkout
@@ -78,7 +76,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             ~/.cache/cargo
-            ${{ env.CPM_SOURCE_CACHE }}
+            ${{ github.workspace }}/.cpm-cache
           key: ${{ runner.os }}-geode-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-geode-
@@ -105,7 +103,7 @@ jobs:
           retry 3 cargo install --locked --force --git https://github.com/geode-sdk/cli --tag "${GEODE_CLI_VERSION}"
           geode --version
 
-      - name: Write Geode helper script
+      - name: Write helper script
         shell: bash
         run: |
           set -Eeuo pipefail
@@ -126,10 +124,10 @@ jobs:
           }
 
           setup_profile() {
+            mkdir -p "$HOME/.config/geode"
             if geode config setup --default; then
               return 0
             fi
-
             printf '\n' | geode config setup
           }
 
@@ -188,7 +186,6 @@ jobs:
           set -Eeuo pipefail
           source "$HOME/.cargo/env"
           source "$RUNNER_TEMP/geode_helpers.sh"
-
           retry 3 setup_profile
 
       - name: Install Geode SDK
@@ -197,7 +194,6 @@ jobs:
           set -Eeuo pipefail
           source "$HOME/.cargo/env"
           source "$RUNNER_TEMP/geode_helpers.sh"
-
           run_geode "Install Geode SDK" geode sdk install
 
       - name: Install Android64 binaries
@@ -206,31 +202,32 @@ jobs:
           set -Eeuo pipefail
           source "$HOME/.cargo/env"
           source "$RUNNER_TEMP/geode_helpers.sh"
-
           run_geode "Install Android64 binaries" geode sdk install-binaries -p android64
 
       - name: Install Android NDK
         shell: bash
+        env:
+          ANDROID_NDK_ROOT: ${{ github.workspace }}/android-ndk-r29
         run: |
           set -Eeuo pipefail
           source "$RUNNER_TEMP/geode_helpers.sh"
-
           install_ndk "${ANDROID_NDK_VERSION}" "https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+          test -d "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64"
 
       - name: Build mod
         shell: bash
+        env:
+          ANDROID_NDK_ROOT: ${{ github.workspace }}/android-ndk-r29
         run: |
           set -Eeuo pipefail
           source "$HOME/.cargo/env"
           source "$RUNNER_TEMP/geode_helpers.sh"
-
           run_geode "Build Geode mod" geode build -p android64
 
       - name: Verify .geode output
         shell: bash
         run: |
           set -Eeuo pipefail
-
           GEODE_FILE="$(find build-android64 -type f -name '*.geode' -print -quit 2>/dev/null || true)"
           if [ -z "$GEODE_FILE" ]; then
             GEODE_FILE="$(find . -type f -name '*.geode' -print -quit 2>/dev/null || true)"
