@@ -14,12 +14,11 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      ANDROID_NDK_ROOT: ${{ github.workspace }}/android-ndk-r29
       CARGO_TERM_COLOR: always
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install system dependencies
         run: |
@@ -40,7 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! command -v cargo >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+            curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal
           fi
           echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
           source "$HOME/.cargo/env"
@@ -54,27 +53,23 @@ jobs:
           cargo install --locked --git https://github.com/geode-sdk/cli
           geode --version
 
+      - name: Setup Geode config (CI FIX)
+        run: |
+          set -euo pipefail
+          source "$HOME/.cargo/env"
+          geode config setup --default || true
+
       - name: Install Geode SDK
         run: |
           set -euo pipefail
           source "$HOME/.cargo/env"
           geode sdk install
 
-      - name: Install Geode Android binaries
+      - name: Install Android64 binaries
         run: |
           set -euo pipefail
           source "$HOME/.cargo/env"
           geode sdk install-binaries -p android64
-
-      - name: Install Android NDK
-        run: |
-          set -euo pipefail
-          curl -fsSL --retry 3 --retry-all-errors -o android-ndk.zip https://dl.google.com/android/repository/android-ndk-r29-linux.zip
-          unzip -q android-ndk.zip
-          rm -f android-ndk.zip
-          rm -rf "$ANDROID_NDK_ROOT"
-          mv android-ndk-r29 "$ANDROID_NDK_ROOT"
-          test -d "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64"
 
       - name: Build mod
         run: |
@@ -85,12 +80,17 @@ jobs:
       - name: Verify .geode output
         run: |
           set -euo pipefail
-          find . -type f -name "*.geode" -print | tee /tmp/geode_artifacts.txt
-          test -s /tmp/geode_artifacts.txt
+          FILES=$(find . -type f -name "*.geode")
+          if [ -z "$FILES" ]; then
+            echo "No .geode file found!"
+            exit 1
+          fi
+          echo "$FILES"
 
       - name: Upload .geode artifact
         uses: actions/upload-artifact@v4
         with:
           name: geode-mod-android64
-          path: "**/*.geode"
+          path: |
+            **/*.geode
           if-no-files-found: error
