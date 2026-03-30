@@ -1,63 +1,97 @@
-name: Build Geode Mod FIXED
+name: Build Geode Mod for Android64
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
+
+concurrency:
+  group: geode-android64-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_NDK_ROOT: ${{ github.workspace }}/android-ndk-r29
+      CARGO_TERM_COLOR: always
+
     steps:
-      # 🔹 Clonar repo
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
 
-      # 🔹 Forzar Node 24 (evita errores futuros)
-      - name: Fix Node version
-        run: echo "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24=true" >> $GITHUB_ENV
+      - name: Install system dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            cmake \
+            curl \
+            git \
+            libssl-dev \
+            ninja-build \
+            pkg-config \
+            unzip
 
-      # 🔹 Instalar dependencias básicas
-      - name: Install dependencies
-        run: sudo apt update && sudo apt install -y unzip curl git
+      - name: Install Rust
+        run: |
+          set -euo pipefail
+          if ! command -v cargo >/dev/null 2>&1; then
+            curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+          fi
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          source "$HOME/.cargo/env"
+          rustc --version
+          cargo --version
 
-      # 🔹 Instalar Geode CLI
       - name: Install Geode CLI
         run: |
-          curl -sSL https://github.com/geode-sdk/cli/releases/latest/download/geode-linux.zip -o geode.zip
-          unzip geode.zip
-          chmod +x geode
-          sudo mv geode /usr/local/bin/
+          set -euo pipefail
+          source "$HOME/.cargo/env"
+          cargo install --locked --git https://github.com/geode-sdk/cli
+          geode --version
 
-      # 🔹 Verificar CLI
-      - name: Check Geode
-        run: geode --version
+      - name: Install Geode SDK
+        run: |
+          set -euo pipefail
+          source "$HOME/.cargo/env"
+          geode sdk install
 
-      # 🔴 🔥 INSTALAR SDK (LO QUE TE FALTABA)
-      - name: Install SDK
-        run: geode sdk install
+      - name: Install Geode Android binaries
+        run: |
+          set -euo pipefail
+          source "$HOME/.cargo/env"
+          geode sdk install-binaries -p android64
 
-      # 🔹 Instalar binarios Android
-      - name: Install Android binaries
-        run: geode sdk install-binaries -p android64
+      - name: Install Android NDK
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-all-errors -o android-ndk.zip https://dl.google.com/android/repository/android-ndk-r29-linux.zip
+          unzip -q android-ndk.zip
+          rm -f android-ndk.zip
+          rm -rf "$ANDROID_NDK_ROOT"
+          mv android-ndk-r29 "$ANDROID_NDK_ROOT"
+          test -d "$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64"
 
-      # 🔹 Build con debug fuerte
       - name: Build mod
         run: |
-          set -e
-          echo "🔥 Iniciando build..."
+          set -euo pipefail
+          source "$HOME/.cargo/env"
           geode build -p android64
 
-      # 🔹 Verificar salida
-      - name: Check output
+      - name: Verify .geode output
         run: |
-          echo "🔍 Buscando .geode..."
-          find . -name "*.geode"
+          set -euo pipefail
+          find . -type f -name "*.geode" -print | tee /tmp/geode_artifacts.txt
+          test -s /tmp/geode_artifacts.txt
 
-      # 🔹 Subir mod
-      - name: Upload mod
+      - name: Upload .geode artifact
         uses: actions/upload-artifact@v4
         with:
-          name: geode-mod
+          name: geode-mod-android64
           path: "**/*.geode"
           if-no-files-found: error
+```0
