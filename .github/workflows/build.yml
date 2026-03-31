@@ -174,7 +174,6 @@ jobs:
             eof { exit 0 }
             timeout { exit 1 }
           }
-EOF
           else
             echo "Geode profile setup failed"
             exit 1
