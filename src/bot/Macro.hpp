@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace bot {
+namespace hub {
 
 struct InputFrame {
     double time = 0.0;
@@ -24,11 +24,12 @@ public:
 
     bool isRecording() const;
     bool isPlaying() const;
+
     bool empty() const;
     bool finished() const;
     std::size_t size() const;
 
-    void record(double time, int button, bool down, int boost = 1);
+    void record(double time, int button, bool down, int boost);
     bool next(double time, InputFrame& out);
 
     std::vector<InputFrame>& frames();
@@ -39,7 +40,6 @@ private:
     std::size_t m_playIndex = 0;
     bool m_recording = false;
     bool m_playing = false;
-    double m_lastRecordedTime = -1.0;
 };
 
 }
