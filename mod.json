@@ -1,11 +1,16 @@
 {
-  "geode": "5.5.3",
+  "geode": "v5.5.3",
   "gd": { "android": "2.2081" },
   "id": "fling.private-pro",
   "name": "Private FPS Pro",
   "version": "2.0.0",
   "developer": "fling",
   "description": "PRIVATE mod",
+  "resources": {
+    "sprites": [
+      "resources/icon.png"
+    ]
+  },
   "settings": {
     "bypass": {
       "type": "bool",
@@ -17,13 +22,25 @@
       "min": 60,
       "max": 360
     },
-    "ship": {
+    "straight_enabled": {
       "type": "bool",
       "default": true
     },
-    "wave": {
+    "straight_strength": {
+      "type": "int",
+      "default": 18,
+      "min": 1,
+      "max": 50
+    },
+    "wave_enabled": {
       "type": "bool",
       "default": true
+    },
+    "wave_strength": {
+      "type": "int",
+      "default": 20,
+      "min": 1,
+      "max": 50
     }
   }
 }
