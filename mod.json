@@ -1,5 +1,5 @@
 {
-  "geode": "v5.5.3",
+  "geode": "5.5.3",
   "gd": { "android": "2.2081" },
   "id": "fling.private-pro",
   "name": "Private FPS Pro",
@@ -12,11 +12,11 @@
     ]
   },
   "settings": {
-    "bypass": {
+    "fps_enabled": {
       "type": "bool",
       "default": true
     },
-    "fps": {
+    "fps_target": {
       "type": "int",
       "default": 240,
       "min": 60,
@@ -41,6 +41,24 @@
       "default": 20,
       "min": 1,
       "max": 50
+    },
+    "bot_recording": {
+      "type": "bool",
+      "default": false
+    },
+    "bot_playing": {
+      "type": "bool",
+      "default": false
+    },
+    "frame_stepper": {
+      "type": "bool",
+      "default": false
+    },
+    "cbf_boost": {
+      "type": "int",
+      "default": 3,
+      "min": 1,
+      "max": 10
     }
   }
 }
