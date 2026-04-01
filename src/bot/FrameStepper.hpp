@@ -1,6 +1,6 @@
 #pragma once
 
-namespace bot {
+namespace hub {
 
 class FrameStepper {
 public:
@@ -8,6 +8,7 @@ public:
         m_enabled = enabled;
         if (!enabled) {
             m_pending = false;
+            m_allowGameplayFrame = true;
         }
     }
 
@@ -19,26 +20,35 @@ public:
         m_pending = true;
     }
 
-    bool consumeStep() {
+    bool advanceFrame() {
         if (!m_enabled) {
+            m_allowGameplayFrame = true;
             return true;
         }
 
         if (m_pending) {
             m_pending = false;
+            m_allowGameplayFrame = true;
             return true;
         }
 
+        m_allowGameplayFrame = false;
         return false;
     }
 
     void reset() {
         m_pending = false;
+        m_allowGameplayFrame = true;
+    }
+
+    bool allowGameplayFrame() const {
+        return m_allowGameplayFrame;
     }
 
 private:
     bool m_enabled = false;
     bool m_pending = false;
+    bool m_allowGameplayFrame = true;
 };
 
 }
