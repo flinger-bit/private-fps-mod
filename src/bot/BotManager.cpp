@@ -3,11 +3,10 @@
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
-#include <sstream>
 
 using namespace geode::prelude;
 
-namespace bot {
+namespace hub {
 
 namespace {
 template <typename T>
@@ -67,7 +66,8 @@ std::filesystem::path BotManager::saveFile() const {
 void BotManager::resetSession() {
     m_time = 0.0;
     m_player = nullptr;
-    m_inSyntheticInput = false;
+    m_syntheticInput = false;
+    m_allowGameplayFrame = true;
     m_stepper.reset();
 }
 
@@ -117,11 +117,13 @@ void BotManager::startPlaying() {
     setSettingBool("bot_playing", true);
     m_time = 0.0;
     m_stepper.reset();
+    m_allowGameplayFrame = true;
 }
 
 void BotManager::stopPlaying() {
     m_macro.stopPlaying();
     setSettingBool("bot_playing", false);
+    m_syntheticInput = false;
 }
 
 void BotManager::toggleFrameStepper() {
@@ -130,25 +132,21 @@ void BotManager::toggleFrameStepper() {
     m_stepper.setEnabled(enabled);
     if (!enabled) {
         m_stepper.reset();
+        m_allowGameplayFrame = true;
     }
 }
 
 void BotManager::stepOneFrame() {
-    setSettingBool("frame_stepper", true);
-    m_stepper.setEnabled(true);
+    if (!getSettingBool("frame_stepper", false)) {
+        setSettingBool("frame_stepper", true);
+        m_stepper.setEnabled(true);
+    }
+
     m_stepper.requestStep();
 }
 
-bool BotManager::allowPlayerUpdate() {
-    if (!isFrameStepEnabled()) {
-        return true;
-    }
-
-    return m_stepper.consumeStep();
-}
-
 void BotManager::recordEvent(int button, bool down) {
-    if (!isRecording() || isSyntheticInput()) {
+    if (!isRecording() || m_syntheticInput) {
         return;
     }
 
@@ -157,39 +155,42 @@ void BotManager::recordEvent(int button, bool down) {
 }
 
 void BotManager::update(float dt) {
-    if (!isRecording() && !isPlaying()) {
+    m_allowGameplayFrame = m_stepper.advanceFrame();
+    if (!m_allowGameplayFrame) {
         return;
     }
 
-    m_time += dt;
+    if (isRecording() || isPlaying()) {
+        m_time += dt;
+    }
 
-    if (isPlaying() && m_player) {
-        InputFrame frame;
+    if (!isPlaying() || !m_player) {
+        return;
+    }
 
-        while (m_macro.next(m_time, frame)) {
-            m_inSyntheticInput = true;
+    InputFrame frame;
+    while (m_macro.next(m_time, frame)) {
+        m_syntheticInput = true;
 
-            auto const button = static_cast<PlayerButton>(frame.button);
-            if (frame.down) {
-                m_player->pushButton(button);
-            }
-            else {
-                m_player->releaseButton(button);
-            }
-
-            m_inSyntheticInput = false;
+        auto const button = static_cast<PlayerButton>(frame.button);
+        if (frame.down) {
+            m_player->pushButton(button);
+        } else {
+            m_player->releaseButton(button);
         }
 
-        if (m_macro.finished()) {
-            stopPlaying();
-        }
+        m_syntheticInput = false;
+    }
+
+    if (m_macro.finished()) {
+        stopPlaying();
     }
 }
 
 void BotManager::saveMacro() {
     auto const path = saveFile();
     if (path.empty()) {
-        log::error("Cannot save macro: save path is invalid.");
+        log::error("Cannot save macro: invalid save path.");
         return;
     }
 
@@ -200,7 +201,6 @@ void BotManager::saveMacro() {
     }
 
     out << std::setprecision(17);
-
     for (auto const& frame : m_macro.frames()) {
         out << frame.time << ' '
             << frame.button << ' '
@@ -208,13 +208,13 @@ void BotManager::saveMacro() {
             << frame.sequence << '\n';
     }
 
-    log::info("Saved {} macro frames to {}", m_macro.size(), path.string());
+    log::info("Saved {} frames to {}", m_macro.size(), path.string());
 }
 
 void BotManager::loadMacro() {
     auto const path = saveFile();
     if (path.empty()) {
-        log::error("Cannot load macro: save path is invalid.");
+        log::error("Cannot load macro: invalid save path.");
         return;
     }
 
@@ -236,11 +236,11 @@ void BotManager::loadMacro() {
             .time = time,
             .button = button,
             .down = down,
-            .sequence = sequence,
+            .sequence = sequence
         });
     }
 
-    log::info("Loaded {} macro frames from {}", m_macro.size(), path.string());
+    log::info("Loaded {} frames from {}", m_macro.size(), path.string());
 }
 
 bool BotManager::isRecording() const {
@@ -255,16 +255,24 @@ bool BotManager::isFrameStepEnabled() const {
     return getSettingBool("frame_stepper", false);
 }
 
+bool BotManager::allowGameplayFrame() const {
+    return m_allowGameplayFrame;
+}
+
 bool BotManager::isSyntheticInput() const {
-    return m_inSyntheticInput;
+    return m_syntheticInput;
 }
 
 void BotManager::beginSyntheticInput() {
-    m_inSyntheticInput = true;
+    m_syntheticInput = true;
 }
 
 void BotManager::endSyntheticInput() {
-    m_inSyntheticInput = false;
+    m_syntheticInput = false;
+}
+
+bool BotManager::shouldIgnorePhysicalInput() const {
+    return isPlaying() && getSettingBool("ignore_inputs", true) && !m_syntheticInput;
 }
 
 Macro& BotManager::macro() {
