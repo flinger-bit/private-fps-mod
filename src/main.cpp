@@ -2,7 +2,9 @@
 #include <Geode/modify/GameManager.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
-#include <Geode/ui/ButtonSprite.hpp>
+
+#include <Geode/ui/BasedButtonSprite.hpp>
+#include <Geode/binding/CCMenuItemSpriteExtra.hpp>
 
 #include "bot/BotManager.hpp"
 
@@ -290,146 +292,79 @@ public:
 
     void onFpsToggle(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("fps_enabled")) {
-            return;
-        }
-
-        auto enabled = mod->getSettingValue<bool>("fps_enabled");
-        mod->setSettingValue<bool>("fps_enabled", !enabled);
+        if (!mod || !mod->hasSetting("fps_enabled")) return;
+        mod->setSettingValue<bool>("fps_enabled", !mod->getSettingValue<bool>("fps_enabled"));
         refresh();
     }
 
     void onFpsMinus(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("fps_target")) {
-            return;
-        }
-
-        auto value = clampValue(mod->getSettingValue<int>("fps_target") - 30, 60, 360);
-        mod->setSettingValue<int>("fps_target", value);
+        if (!mod || !mod->hasSetting("fps_target")) return;
+        mod->setSettingValue<int>("fps_target", clampValue(mod->getSettingValue<int>("fps_target") - 30, 60, 360));
         refresh();
     }
 
     void onFpsPlus(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("fps_target")) {
-            return;
-        }
-
-        auto value = clampValue(mod->getSettingValue<int>("fps_target") + 30, 60, 360);
-        mod->setSettingValue<int>("fps_target", value);
+        if (!mod || !mod->hasSetting("fps_target")) return;
+        mod->setSettingValue<int>("fps_target", clampValue(mod->getSettingValue<int>("fps_target") + 30, 60, 360));
         refresh();
     }
 
     void onFpsDefault(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("fps_target")) {
-            return;
-        }
-
+        if (!mod || !mod->hasSetting("fps_target")) return;
         mod->setSettingValue<int>("fps_target", 240);
         refresh();
     }
 
-    void onRecord(CCObject*) {
-        BotManager::shared().startRecording();
-        refresh();
-    }
-
-    void onPlay(CCObject*) {
-        BotManager::shared().startPlaying();
-        refresh();
-    }
-
-    void onStop(CCObject*) {
-        BotManager::shared().stopRecording();
-        BotManager::shared().stopPlaying();
-        refresh();
-    }
-
-    void onSave(CCObject*) {
-        BotManager::shared().saveMacro();
-        refresh();
-    }
-
-    void onLoad(CCObject*) {
-        BotManager::shared().loadMacro();
-        refresh();
-    }
-
-    void onStep(CCObject*) {
-        BotManager::shared().stepOneFrame();
-        refresh();
-    }
-
-    void onFrameStepToggle(CCObject*) {
-        BotManager::shared().toggleFrameStepper();
-        refresh();
-    }
+    void onRecord(CCObject*) { BotManager::shared().startRecording(); refresh(); }
+    void onPlay(CCObject*) { BotManager::shared().startPlaying(); refresh(); }
+    void onStop(CCObject*) { BotManager::shared().stopRecording(); BotManager::shared().stopPlaying(); refresh(); }
+    void onSave(CCObject*) { BotManager::shared().saveMacro(); refresh(); }
+    void onLoad(CCObject*) { BotManager::shared().loadMacro(); refresh(); }
+    void onStep(CCObject*) { BotManager::shared().stepOneFrame(); refresh(); }
+    void onFrameStepToggle(CCObject*) { BotManager::shared().toggleFrameStepper(); refresh(); }
 
     void onStraightToggle(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("straight_enabled")) {
-            return;
-        }
-
-        auto enabled = mod->getSettingValue<bool>("straight_enabled");
-        mod->setSettingValue<bool>("straight_enabled", !enabled);
+        if (!mod || !mod->hasSetting("straight_enabled")) return;
+        mod->setSettingValue<bool>("straight_enabled", !mod->getSettingValue<bool>("straight_enabled"));
         refresh();
     }
 
     void onWaveToggle(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("wave_enabled")) {
-            return;
-        }
-
-        auto enabled = mod->getSettingValue<bool>("wave_enabled");
-        mod->setSettingValue<bool>("wave_enabled", !enabled);
+        if (!mod || !mod->hasSetting("wave_enabled")) return;
+        mod->setSettingValue<bool>("wave_enabled", !mod->getSettingValue<bool>("wave_enabled"));
         refresh();
     }
 
     void onStraightMinus(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("straight_strength")) {
-            return;
-        }
-
-        auto value = clampValue(mod->getSettingValue<int>("straight_strength") - 1, 1, 50);
-        mod->setSettingValue<int>("straight_strength", value);
+        if (!mod || !mod->hasSetting("straight_strength")) return;
+        mod->setSettingValue<int>("straight_strength", clampValue(mod->getSettingValue<int>("straight_strength") - 1, 1, 50));
         refresh();
     }
 
     void onStraightPlus(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("straight_strength")) {
-            return;
-        }
-
-        auto value = clampValue(mod->getSettingValue<int>("straight_strength") + 1, 1, 50);
-        mod->setSettingValue<int>("straight_strength", value);
+        if (!mod || !mod->hasSetting("straight_strength")) return;
+        mod->setSettingValue<int>("straight_strength", clampValue(mod->getSettingValue<int>("straight_strength") + 1, 1, 50));
         refresh();
     }
 
     void onCbfMinus(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("cbf_boost")) {
-            return;
-        }
-
-        auto value = clampValue(mod->getSettingValue<int>("cbf_boost") - 1, 1, 10);
-        mod->setSettingValue<int>("cbf_boost", value);
+        if (!mod || !mod->hasSetting("cbf_boost")) return;
+        mod->setSettingValue<int>("cbf_boost", clampValue(mod->getSettingValue<int>("cbf_boost") - 1, 1, 10));
         refresh();
     }
 
     void onCbfPlus(CCObject*) {
         auto mod = Mod::get();
-        if (!mod || !mod->hasSetting("cbf_boost")) {
-            return;
-        }
-
-        auto value = clampValue(mod->getSettingValue<int>("cbf_boost") + 1, 1, 10);
-        mod->setSettingValue<int>("cbf_boost", value);
+        if (!mod || !mod->hasSetting("cbf_boost")) return;
+        mod->setSettingValue<int>("cbf_boost", clampValue(mod->getSettingValue<int>("cbf_boost") + 1, 1, 10));
         refresh();
     }
 
@@ -450,9 +385,7 @@ public:
         }
 
         auto play = PlayLayer::get();
-        if (!play) {
-            return;
-        }
+        if (!play) return;
 
         s_open = HubOverlay::create();
         play->addChild(s_open, 99999);
@@ -514,8 +447,7 @@ class $modify(MyGameManager, GameManager) {
             auto target = clampValue(mod->hasSetting("fps_target") ? mod->getSettingValue<int>("fps_target") : 240, 60, 360);
             this->m_customFPSTarget = static_cast<float>(target);
             CCDirector::sharedDirector()->setAnimationInterval(1.0 / static_cast<double>(target));
-        }
-        else {
+        } else {
             this->m_customFPSTarget = 60.0f;
             CCDirector::sharedDirector()->setAnimationInterval(1.0 / 60.0);
         }
