@@ -7,7 +7,7 @@
 #include "FrameStepper.hpp"
 #include "Macro.hpp"
 
-namespace bot {
+namespace hub {
 
 class BotManager {
 public:
@@ -27,7 +27,6 @@ public:
 
     void toggleFrameStepper();
     void stepOneFrame();
-    bool allowPlayerUpdate();
 
     void recordEvent(int button, bool down);
     void update(float dt);
@@ -39,9 +38,13 @@ public:
     bool isPlaying() const;
     bool isFrameStepEnabled() const;
 
+    bool allowGameplayFrame() const;
+
     bool isSyntheticInput() const;
     void beginSyntheticInput();
     void endSyntheticInput();
+
+    bool shouldIgnorePhysicalInput() const;
 
     Macro& macro();
     Macro const& macro() const;
@@ -53,12 +56,15 @@ private:
 
     bool getSettingBool(char const* key, bool fallback = false) const;
     int getSettingInt(char const* key, int fallback = 0) const;
+
     void setSettingBool(char const* key, bool value);
     void setSettingInt(char const* key, int value);
 
     PlayerObject* m_player = nullptr;
     double m_time = 0.0;
-    bool m_inSyntheticInput = false;
+    bool m_syntheticInput = false;
+    bool m_allowGameplayFrame = true;
+
     Macro m_macro;
     FrameStepper m_stepper;
 };
