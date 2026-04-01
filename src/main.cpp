@@ -5,12 +5,12 @@
 using namespace geode::prelude;
 
 class $modify(MyGameManager, GameManager) {
-    void setFPS(float fps) {
-        auto mod = Mod::get();
-        if (mod && mod->getSettingValue<bool>("bypass")) {
-            fps = static_cast<float>(mod->getSettingValue<int64_t>("fps"));
+    void update(float dt) {
+        GameManager::update(dt);
+
+        if (auto mod = Mod::get(); mod && mod->getSettingValue<bool>("bypass")) {
+            this->m_customFPSTarget = static_cast<float>(mod->getSettingValue<int>("fps"));
         }
-        GameManager::setFPS(fps);
     }
 };
 
@@ -22,13 +22,16 @@ class $modify(MyPlayer, PlayerObject) {
         if (!mod) return;
 
         if (mod->getSettingValue<bool>("ship") && this->m_isShip) {
-            this->m_rotation = 0.0f;
-            this->m_velocity.y = 0.0f;
+            this->m_rotationSpeed = 0.0f;
+            this->m_rotateSpeed = 0.0f;
+            this->setYVelocity(0.0, 0);
         }
 
-        if (mod->getSettingValue<bool>("wave") && this->m_isBird) {
-            this->m_rotation = 0.0f;
-            this->m_velocity.y = 0.0f;
+        // En Geode/2.2, el modo wave suele aparecer como dart en las bindings.
+        if (mod->getSettingValue<bool>("wave") && (this->m_isBird || this->m_isDart)) {
+            this->m_rotationSpeed = 0.0f;
+            this->m_rotateSpeed = 0.0f;
+            this->setYVelocity(0.0, 0);
         }
     }
 };
