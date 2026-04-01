@@ -1,16 +1,33 @@
 {
-  "geode": "v3.0.0",
+  "geode": "v5.5.3",
   "gd": { "android": "2.2081" },
   "id": "fling.private-pro",
   "name": "Private FPS Pro",
   "version": "2.0.0",
   "developer": "fling",
   "description": "PRIVATE mod",
-
   "settings": {
-    "bypass": { "type": "bool", "default": true },
-    "fps": { "type": "int", "default": 240, "min": 60, "max": 360 },
-    "ship": { "type": "bool", "default": true },
-    "wave": { "type": "bool", "default": true }
+    "bypass": {
+      "type": "bool",
+      "name": "Bypass FPS cap",
+      "default": true
+    },
+    "fps": {
+      "type": "int",
+      "name": "Target FPS",
+      "default": 240,
+      "min": 60,
+      "max": 360
+    },
+    "ship": {
+      "type": "bool",
+      "name": "Freeze ship",
+      "default": true
+    },
+    "wave": {
+      "type": "bool",
+      "name": "Freeze wave",
+      "default": true
+    }
   }
 }
