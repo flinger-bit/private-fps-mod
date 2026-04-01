@@ -3,18 +3,18 @@
 #include <algorithm>
 #include <cmath>
 
-namespace bot {
+namespace hub {
 
 void Macro::clear() {
     m_frames.clear();
     m_playIndex = 0;
-    m_lastRecordedTime = -1.0;
+    m_recording = false;
+    m_playing = false;
 }
 
 void Macro::startRecording() {
     clear();
     m_recording = true;
-    m_playing = false;
 }
 
 void Macro::stopRecording() {
@@ -61,9 +61,9 @@ void Macro::record(double time, int button, bool down, int boost) {
 
     if (!m_frames.empty()) {
         auto const& last = m_frames.back();
-        auto const window = (1.0 / 60.0) * static_cast<double>(std::max(1, boost));
+        auto const window = (1.0 / 60.0) / static_cast<double>(std::max(1, boost));
 
-        if (std::abs(last.time - time) <= window) {
+        if (std::abs(time - last.time) <= window) {
             sequence = last.sequence + 1;
         }
     }
@@ -72,10 +72,8 @@ void Macro::record(double time, int button, bool down, int boost) {
         .time = time,
         .button = button,
         .down = down,
-        .sequence = sequence,
+        .sequence = sequence
     });
-
-    m_lastRecordedTime = time;
 }
 
 bool Macro::next(double time, InputFrame& out) {
