@@ -1,5 +1,5 @@
 {
-  "geode": "v5.5.3",
+  "geode": "5.5.3",
   "gd": { "android": "2.2081" },
   "id": "fling.private-pro",
   "name": "Private FPS Pro",
@@ -9,24 +9,20 @@
   "settings": {
     "bypass": {
       "type": "bool",
-      "name": "Bypass FPS cap",
       "default": true
     },
     "fps": {
       "type": "int",
-      "name": "Target FPS",
       "default": 240,
       "min": 60,
       "max": 360
     },
     "ship": {
       "type": "bool",
-      "name": "Freeze ship",
       "default": true
     },
     "wave": {
       "type": "bool",
-      "name": "Freeze wave",
       "default": true
     }
   }
