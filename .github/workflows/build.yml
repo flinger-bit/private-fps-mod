@@ -31,7 +31,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
@@ -61,7 +61,7 @@ jobs:
         id: build
         uses: geode-sdk/build-geode-mod@main
         with:
-          sdk: latest
+          sdk: given
           cli: latest
           target: ${{ steps.meta.outputs.target }}
           path: .
@@ -69,10 +69,9 @@ jobs:
           android-min-sdk: 23
           build-config: Release
           use-lto: true
-          configure-args: -DCMAKE_CXX_STANDARD=23
 
       - name: Upload .geode artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v4
         with:
           name: geode-mod-${{ steps.meta.outputs.platform }}
           path: ${{ steps.build.outputs.build-output }}
