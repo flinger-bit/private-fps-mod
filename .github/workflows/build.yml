@@ -69,6 +69,7 @@ jobs:
           android-min-sdk: 23
           build-config: Release
           use-lto: true
+          configure-args: -DCMAKE_CXX_STANDARD=23
 
       - name: Upload .geode artifact
         uses: actions/upload-artifact@v4
