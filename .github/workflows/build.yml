@@ -22,7 +22,13 @@ permissions:
   contents: read
 
 env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: full
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  GEODE_CLI_REF: main
+  ANDROID_NDK_VERSION: r29
+  ANDROID_NDK_ROOT: ${{ github.workspace }}/android-ndk-r29
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
 
 jobs:
   build:
@@ -32,12 +38,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
 
-      - name: Resolve target
+      - name: Resolve target platform
         id: meta
         shell: bash
         run: |
           set -Eeuo pipefail
+
           PLATFORM="${{ github.event.inputs.platform }}"
           if [ -z "${PLATFORM:-}" ]; then
             PLATFORM="android64"
@@ -46,24 +55,313 @@ jobs:
           case "$PLATFORM" in
             android32) TARGET="Android32" ;;
             android64) TARGET="Android64" ;;
-            *) echo "Invalid platform: $PLATFORM" ; exit 1 ;;
+            *)
+              echo "::error title=Invalid platform::Unsupported platform: $PLATFORM"
+              exit 1
+              ;;
           esac
 
           echo "platform=$PLATFORM" >> "$GITHUB_OUTPUT"
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
-      - name: Build with Geode
-        id: build
-        uses: geode-sdk/build-geode-mod@main
+      - name: Install system dependencies
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential \
+            ca-certificates \
+            clang \
+            cmake \
+            curl \
+            git \
+            lld \
+            ninja-build \
+            pkg-config \
+            python3 \
+            unzip \
+            zstd
+
+      - name: Install Rust
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          curl --proto '=https' --tlsv1.2 -fsSL https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          source "$HOME/.cargo/env"
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo and CPM sources
+        uses: actions/cache@v5
         with:
-          sdk: latest
-          cli: latest
-          target: ${{ steps.meta.outputs.target }}
-          path: .
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cache/cargo
+            ${{ env.CPM_SOURCE_CACHE }}
+          key: ${{ runner.os }}-geode-${{ steps.meta.outputs.platform }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-geode-${{ steps.meta.outputs.platform }}-
+            ${{ runner.os }}-geode-
+
+      - name: Install Geode CLI
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source "$HOME/.cargo/env"
+
+          retry() {
+            local attempts="$1"
+            shift
+            local n=1
+            until "$@"; do
+              if (( n >= attempts )); then
+                return 1
+              fi
+              n=$((n + 1))
+              sleep $((n * 5))
+            done
+          }
+
+          retry 3 cargo install --locked --force --git https://github.com/geode-sdk/cli --branch "${GEODE_CLI_REF}"
+          geode --version
+
+      - name: Setup Geode profile (non-interactive)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source "$HOME/.cargo/env"
+
+          PROFILE_DIR="$HOME/GeometryDash"
+          PROFILE_NAME="ci"
+
+          mkdir -p "$PROFILE_DIR"
+          mkdir -p "$HOME/.config/geode"
+
+          DUMMY_EXE="$PROFILE_DIR/GeometryDash.exe"
+          touch "$DUMMY_EXE"
+
+          if geode profile list 2>/dev/null | grep -Fq "$PROFILE_NAME"; then
+            echo "Profile already exists: $PROFILE_NAME"
+          else
+            geode profile add --name "$PROFILE_NAME" "$DUMMY_EXE" win
+          fi
+
+          geode profile list || true
+
+      - name: Install Geode SDK
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source "$HOME/.cargo/env"
+
+          LOG_DIR="$RUNNER_TEMP/geode-logs"
+          mkdir -p "$LOG_DIR"
+
+          run_logged() {
+            local label="$1"
+            shift
+            local log="$LOG_DIR/${label}.log"
+
+            echo "::group::$label"
+            set +e
+            "$@" > >(tee "$log") 2> >(tee -a "$log" >&2)
+            local rc=$?
+            set -e
+            echo "::endgroup::"
+
+            if [ "$rc" -ne 0 ]; then
+              echo "::error title=$label failed::exit code $rc"
+              echo "----- last 200 lines of $label -----"
+              tail -n 200 "$log" || true
+              return "$rc"
+            fi
+          }
+
+          retry() {
+            local attempts="$1"
+            shift
+            local n=1
+            until "$@"; do
+              if (( n >= attempts )); then
+                return 1
+              fi
+              n=$((n + 1))
+              sleep $((n * 5))
+            done
+          }
+
+          retry 3 run_logged geode-sdk-install geode sdk install
+
+      - name: Install Android binaries
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source "$HOME/.cargo/env"
+
+          LOG_DIR="$RUNNER_TEMP/geode-logs"
+          mkdir -p "$LOG_DIR"
+
+          run_logged() {
+            local label="$1"
+            shift
+            local log="$LOG_DIR/${label}.log"
+
+            echo "::group::$label"
+            set +e
+            "$@" > >(tee "$log") 2> >(tee -a "$log" >&2)
+            local rc=$?
+            set -e
+            echo "::endgroup::"
+
+            if [ "$rc" -ne 0 ]; then
+              echo "::error title=$label failed::exit code $rc"
+              echo "----- last 200 lines of $label -----"
+              tail -n 200 "$log" || true
+              return "$rc"
+            fi
+          }
+
+          retry() {
+            local attempts="$1"
+            shift
+            local n=1
+            until "$@"; do
+              if (( n >= attempts )); then
+                return 1
+              fi
+              n=$((n + 1))
+              sleep $((n * 5))
+            done
+          }
+
+          retry 3 run_logged geode-install-binaries geode sdk install-binaries -p "${{ steps.meta.outputs.platform }}"
+
+      - name: Install Android NDK
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          LOG_DIR="$RUNNER_TEMP/geode-logs"
+          mkdir -p "$LOG_DIR"
+
+          run_logged() {
+            local label="$1"
+            shift
+            local log="$LOG_DIR/${label}.log"
+
+            echo "::group::$label"
+            set +e
+            "$@" > >(tee "$log") 2> >(tee -a "$log" >&2)
+            local rc=$?
+            set -e
+            echo "::endgroup::"
+
+            if [ "$rc" -ne 0 ]; then
+              echo "::error title=$label failed::exit code $rc"
+              echo "----- last 200 lines of $label -----"
+              tail -n 200 "$log" || true
+              return "$rc"
+            fi
+          }
+
+          NDK_URL="https://dl.google.com/android/repository/android-ndk-${ANDROID_NDK_VERSION}-linux.zip"
+          WORKDIR="$GITHUB_WORKSPACE/.ndk-download"
+
+          rm -rf "$WORKDIR"
+          mkdir -p "$WORKDIR"
+
+          run_logged ndk-download curl -fsSL --retry 5 --retry-all-errors -o "$WORKDIR/ndk.zip" "$NDK_URL"
+          run_logged ndk-unzip unzip -q "$WORKDIR/ndk.zip" -d "$WORKDIR"
+
+          test -d "$WORKDIR/android-ndk-${ANDROID_NDK_VERSION}/toolchains/llvm/prebuilt/linux-x86_64"
+
+          rm -rf "$ANDROID_NDK_ROOT"
+          mv "$WORKDIR/android-ndk-${ANDROID_NDK_VERSION}" "$ANDROID_NDK_ROOT"
+
+      - name: Build mod
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          source "$HOME/.cargo/env"
+
+          LOG_DIR="$RUNNER_TEMP/geode-logs"
+          mkdir -p "$LOG_DIR"
+          BUILD_LOG="$LOG_DIR/build.log"
+
+          run_logged() {
+            local label="$1"
+            shift
+            local log="$LOG_DIR/${label}.log"
+
+            echo "::group::$label"
+            set +e
+            "$@" > >(tee "$log") 2> >(tee -a "$log" >&2)
+            local rc=$?
+            set -e
+            echo "::endgroup::"
+
+            if [ "$rc" -ne 0 ]; then
+              echo "::error title=$label failed::exit code $rc"
+              echo "----- last 200 lines of $label -----"
+              tail -n 200 "$log" || true
+              return "$rc"
+            fi
+          }
+
+          retry() {
+            local attempts="$1"
+            shift
+            local n=1
+            until "$@"; do
+              if (( n >= attempts )); then
+                return 1
+              fi
+              n=$((n + 1))
+              sleep $((n * 5))
+            done
+          }
+
+          geode --version
+          retry 3 run_logged geode-build geode build -p "${{ steps.meta.outputs.platform }}" 2>&1 | tee "$BUILD_LOG"
+
+      - name: Verify .geode output
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+
+          BUILD_DIR="build-${{ steps.meta.outputs.platform }}"
+          GEODE_FILE="$(find "$BUILD_DIR" -type f -name '*.geode' -print -quit 2>/dev/null || true)"
+
+          if [ -z "$GEODE_FILE" ]; then
+            GEODE_FILE="$(find . -type f -name '*.geode' -print -quit 2>/dev/null || true)"
+          fi
+
+          if [ -z "$GEODE_FILE" ]; then
+            echo "::error title=No .geode output found::The build finished but no .geode file was generated."
+            find . -maxdepth 4 -type f | sed -n '1,200p'
+            exit 1
+          fi
+
+          mkdir -p dist
+          cp -f "$GEODE_FILE" dist/
+          find dist -type f -name '*.geode' -print
 
       - name: Upload .geode artifact
         uses: actions/upload-artifact@v6
         with:
           name: geode-mod-${{ steps.meta.outputs.platform }}
-          path: ${{ steps.build.outputs.build-output }}
+          path: dist/*.geode
           if-no-files-found: error
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: geode-logs-${{ steps.meta.outputs.platform }}
+          path: ${{ runner.temp }}/geode-logs
+          if-no-files-found: ignore
