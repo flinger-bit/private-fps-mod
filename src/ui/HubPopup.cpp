@@ -32,6 +32,13 @@ namespace {
         label->setScale(scale);
         return CCMenuItemSpriteExtra::create(label, target, callback);
     }
+
+    bool pointInRect(CCPoint const& p, CCRect const& r) {
+        return p.x >= r.origin.x
+            && p.x <= r.origin.x + r.size.width
+            && p.y >= r.origin.y
+            && p.y <= r.origin.y + r.size.height;
+    }
 }
 
 HubPopup* HubPopup::create() {
@@ -110,9 +117,14 @@ bool HubPopup::ccTouchBegan(CCTouch* touch, CCEvent*) {
 
     auto point = convertToNodeSpace(touch->getLocation());
     auto panelPos = m_panel->getPosition();
-    auto dragRect = CCRectMake(panelPos.x, panelPos.y + kBodyH + (kHeaderH - kDragH), kPanelW, kDragH);
+    auto dragRect = CCRectMake(
+        panelPos.x,
+        panelPos.y + kBodyH + (kHeaderH - kDragH),
+        kPanelW,
+        kDragH
+    );
 
-    if (CCRectContainsPoint(dragRect, point)) {
+    if (pointInRect(point, dragRect)) {
         m_dragging = true;
         m_dragOffset = ccpSub(m_panel->getPosition(), point);
         return true;
