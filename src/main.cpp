@@ -105,6 +105,28 @@ protected:
     CCLayer* m_content = nullptr;
     CCLabelBMFont* m_statusTop = nullptr;
     CCLabelBMFont* m_statusBottom = nullptr;
+    CCMenu* m_tabsMenu = nullptr;
+    CCMenu* m_contentMenu = nullptr;
+
+    void refreshTabs() {
+        if (!m_tabsMenu) {
+            return;
+        }
+
+        m_tabsMenu->removeAllChildrenWithCleanup(true);
+
+        auto fpsTab = makeTextButton("FPS", this, menu_selector(HubPopup::onTabFps), 0.30f);
+        fpsTab->setPosition(CCPointMake(70.f, 408.f));
+        m_tabsMenu->addChild(fpsTab);
+
+        auto botTab = makeTextButton("BOT", this, menu_selector(HubPopup::onTabBot), 0.30f);
+        botTab->setPosition(CCPointMake(160.f, 408.f));
+        m_tabsMenu->addChild(botTab);
+
+        auto close = makeTextButton("X", this, menu_selector(HubPopup::onClose), 0.34f);
+        close->setPosition(CCPointMake(282.f, 408.f));
+        m_tabsMenu->addChild(close);
+    }
 
     void refresh() {
         if (m_tab == 0) {
@@ -143,17 +165,18 @@ protected:
     }
 
     void rebuild() {
-        if (!m_content) {
+        if (!m_content || !m_contentMenu) {
             return;
         }
 
         m_content->removeAllChildrenWithCleanup(true);
+        m_contentMenu->removeAllChildrenWithCleanup(true);
         m_statusTop = nullptr;
         m_statusBottom = nullptr;
 
         auto menu = CCMenu::create();
         menu->setPosition(CCPointZero);
-        m_content->addChild(menu);
+        m_contentMenu->addChild(menu);
 
         if (m_tab == 0) {
             buildFpsTab(menu);
@@ -161,6 +184,7 @@ protected:
             buildBotTab(menu);
         }
 
+        refreshTabs();
         refresh();
     }
 
@@ -190,7 +214,7 @@ protected:
     void buildBotTab(CCMenu* menu) {
         m_statusTop = CCLabelBMFont::create("", "bigFont.fnt");
         m_statusTop->setScale(0.21f);
-        m_statusTop->setPosition(CCPointMake(kPanelW / 2.f, 350.f));
+        m_statusTop->setPosition(CCPointMake(kPanelW / 2.f, 345.f));
         m_content->addChild(m_statusTop);
 
         m_statusBottom = CCLabelBMFont::create("", "bigFont.fnt");
@@ -286,26 +310,19 @@ public:
         title->setPosition(CCPointMake(kPanelW / 2.f, kPanelH - 18.f));
         panel->addChild(title);
 
-        auto tabs = CCMenu::create();
-        tabs->setPosition(CCPointZero);
-        panel->addChild(tabs);
-
-        auto fpsTab = makeTextButton("FPS", this, menu_selector(HubPopup::onTabFps), 0.28f);
-        fpsTab->setPosition(CCPointMake(70.f, kPanelH - 52.f));
-        tabs->addChild(fpsTab);
-
-        auto botTab = makeTextButton("BOT", this, menu_selector(HubPopup::onTabBot), 0.28f);
-        botTab->setPosition(CCPointMake(160.f, kPanelH - 52.f));
-        tabs->addChild(botTab);
-
-        auto close = makeTextButton("X", this, menu_selector(HubPopup::onClose), 0.30f);
-        close->setPosition(CCPointMake(kPanelW - 18.f, kPanelH - 18.f));
-        tabs->addChild(close);
+        m_tabsMenu = CCMenu::create();
+        m_tabsMenu->setPosition(CCPointZero);
+        panel->addChild(m_tabsMenu, 10);
 
         m_content = CCLayer::create();
         m_content->setPosition(CCPointZero);
-        panel->addChild(m_content);
+        panel->addChild(m_content, 0);
 
+        m_contentMenu = CCMenu::create();
+        m_contentMenu->setPosition(CCPointZero);
+        m_content->addChild(m_contentMenu);
+
+        refreshTabs();
         rebuild();
         return true;
     }
