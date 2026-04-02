@@ -44,8 +44,7 @@ public:
     static HubPopup* create();
     static void toggle();
 
-    void onTabFPS(CCObject*);
-    void onTabBot(CCObject*);
+    void onTabToggle(CCObject*);
     void onClose(CCObject*);
 
     void onFpsToggle(CCObject*);
