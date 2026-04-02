@@ -3,7 +3,7 @@
   "gd": { "android": "2.2081" },
   "id": "fling.private-pro",
   "name": "Private FPS Pro",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "developer": "fling",
   "description": "PRIVATE mod",
   "resources": {
@@ -22,6 +22,7 @@
       "min": 60,
       "max": 360
     },
+
     "bot_recording": {
       "type": "bool",
       "default": false
@@ -43,6 +44,17 @@
       "default": 3,
       "min": 1,
       "max": 10
+    },
+
+    "swift_enabled": {
+      "type": "bool",
+      "default": true
+    },
+    "swift_clicks": {
+      "type": "int",
+      "default": 20,
+      "min": 1,
+      "max": 60
     }
   }
 }
