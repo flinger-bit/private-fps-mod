@@ -384,17 +384,4 @@ void HubPopup::onSwiftDefault(CCObject*) {
     }
     mod->setSettingValue<int>("swift_clicks", 20);
     refresh();
-}        "swift_clicks",
-        clampValue(mod->getSettingValue<int>("swift_clicks") - 1, 1, 60)
-    );
-    refresh();
-}
-
-void HubPopup::onSwiftDefault(CCObject*) {
-    auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("swift_clicks")) {
-        return;
-    }
-    mod->setSettingValue<int>("swift_clicks", 20);
-    refresh();
 }
