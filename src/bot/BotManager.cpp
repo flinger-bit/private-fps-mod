@@ -1,8 +1,11 @@
 #include "BotManager.hpp"
 
+#include <Geode/utils/string.hpp>
+
 #include <algorithm>
 #include <fstream>
 #include <iomanip>
+#include <system_error>
 
 using namespace geode::prelude;
 
@@ -59,7 +62,12 @@ std::filesystem::path BotManager::saveFile() const {
     }
 
     auto dir = mod->getSaveDir();
-    std::filesystem::create_directories(dir);
+    std::error_code ec;
+    std::filesystem::create_directories(dir, ec);
+    if (ec) {
+        log::warn("Could not create save directory {}: {}", pathToString(dir), ec.message());
+    }
+
     return dir / "macro.txt";
 }
 
@@ -130,6 +138,7 @@ void BotManager::toggleFrameStepper() {
     auto enabled = !getSettingBool("frame_stepper", false);
     setSettingBool("frame_stepper", enabled);
     m_stepper.setEnabled(enabled);
+
     if (!enabled) {
         m_stepper.reset();
         m_allowGameplayFrame = true;
@@ -194,9 +203,9 @@ void BotManager::saveMacro() {
         return;
     }
 
-    std::ofstream out(path, std::ios::trunc);
+    std::ofstream out(pathToString(path), std::ios::trunc);
     if (!out.is_open()) {
-        log::error("Failed to open macro file for writing: {}", path.string());
+        log::error("Failed to open macro file for writing: {}", pathToString(path));
         return;
     }
 
@@ -208,7 +217,7 @@ void BotManager::saveMacro() {
             << frame.sequence << '\n';
     }
 
-    log::info("Saved {} frames to {}", m_macro.size(), path.string());
+    log::info("Saved {} frames to {}", m_macro.size(), pathToString(path));
 }
 
 void BotManager::loadMacro() {
@@ -218,9 +227,9 @@ void BotManager::loadMacro() {
         return;
     }
 
-    std::ifstream in(path);
+    std::ifstream in(pathToString(path));
     if (!in.is_open()) {
-        log::warn("Macro file not found: {}", path.string());
+        log::warn("Macro file not found: {}", pathToString(path));
         return;
     }
 
@@ -240,7 +249,7 @@ void BotManager::loadMacro() {
         });
     }
 
-    log::info("Loaded {} frames from {}", m_macro.size(), path.string());
+    log::info("Loaded {} frames from {}", m_macro.size(), pathToString(path));
 }
 
 bool BotManager::isRecording() const {
