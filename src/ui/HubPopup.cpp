@@ -11,6 +11,7 @@
 #include <string>
 
 using namespace geode::prelude;
+using hub::BotManager;
 
 namespace {
     static HubPopup* s_open = nullptr;
