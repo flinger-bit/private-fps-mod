@@ -18,9 +18,9 @@ namespace {
 
     constexpr float kPanelW = 320.f;
     constexpr float kPanelH = 460.f;
-    constexpr float kHeaderH = 60.f;
+    constexpr float kHeaderH = 72.f;
     constexpr float kBodyH = kPanelH - kHeaderH;
-    constexpr float kDragH = 10.f;
+    constexpr float kDragH = 12.f;
 
     template <typename T>
     T clampValue(T value, T low, T high) {
@@ -68,7 +68,7 @@ bool HubPopup::init() {
     m_panel->setContentSize(CCSizeMake(kPanelW, kPanelH));
     m_panel->setAnchorPoint(CCPointZero);
     m_panel->setPosition(CCPointMake(panelX, panelY));
-    addChild(m_panel);
+    addChild(m_panel, 1);
 
     m_body = CCLayer::create();
     m_body->setPosition(CCPointZero);
@@ -79,9 +79,9 @@ bool HubPopup::init() {
     m_header->setContentSize(CCSizeMake(kPanelW, kHeaderH));
     m_header->setAnchorPoint(CCPointZero);
     m_header->setPosition(CCPointMake(0.f, kBodyH));
-    m_panel->addChild(m_header, 2);
+    m_panel->addChild(m_header, 3);
 
-    auto dragStrip = CCLayerColor::create(ccc4(255, 255, 255, 20));
+    auto dragStrip = CCLayerColor::create(ccc4(255, 255, 255, 24));
     dragStrip->setContentSize(CCSizeMake(kPanelW, kDragH));
     dragStrip->setAnchorPoint(CCPointZero);
     dragStrip->setPosition(CCPointMake(0.f, kHeaderH - kDragH));
@@ -89,17 +89,17 @@ bool HubPopup::init() {
 
     auto title = CCLabelBMFont::create("PRIVATE HUB", "bigFont.fnt");
     title->setScale(0.42f);
-    title->setPosition(CCPointMake(104.f, 40.f));
+    title->setPosition(CCPointMake(104.f, 52.f));
     m_header->addChild(title, 1);
 
     auto hint = CCLabelBMFont::create("Drag the top strip", "bigFont.fnt");
     hint->setScale(0.12f);
-    hint->setPosition(CCPointMake(104.f, 26.f));
+    hint->setPosition(CCPointMake(104.f, 36.f));
     m_header->addChild(hint, 1);
 
     m_tabsMenu = CCMenu::create();
     m_tabsMenu->setPosition(CCPointZero);
-    m_header->addChild(m_tabsMenu, 10);
+    m_header->addChild(m_tabsMenu, 20);
 
     rebuild();
     scheduleUpdate();
@@ -169,16 +169,16 @@ void HubPopup::rebuild() {
     m_statusTop = nullptr;
     m_statusBottom = nullptr;
 
-    auto fpsTab = makeTextButton("FPS", this, menu_selector(HubPopup::onTabFPS), 0.28f);
-    fpsTab->setPosition(CCPointMake(72.f, 18.f));
+    auto fpsTab = makeTextButton("FPS", this, menu_selector(HubPopup::onTabFPS), 0.30f);
+    fpsTab->setPosition(CCPointMake(62.f, 20.f));
     m_tabsMenu->addChild(fpsTab);
 
-    auto botTab = makeTextButton("BOT", this, menu_selector(HubPopup::onTabBot), 0.28f);
-    botTab->setPosition(CCPointMake(160.f, 18.f));
+    auto botTab = makeTextButton("BOT", this, menu_selector(HubPopup::onTabBot), 0.30f);
+    botTab->setPosition(CCPointMake(160.f, 20.f));
     m_tabsMenu->addChild(botTab);
 
     auto close = makeTextButton("X", this, menu_selector(HubPopup::onClose), 0.32f);
-    close->setPosition(CCPointMake(280.f, 18.f));
+    close->setPosition(CCPointMake(282.f, 20.f));
     m_tabsMenu->addChild(close);
 
     float contentHeight = m_tab == Tab::FPS ? 390.f : 700.f;
@@ -196,6 +196,7 @@ void HubPopup::rebuild() {
     m_scroll->setPosition(CCPointZero);
     m_scroll->setDirection(kCCScrollViewDirectionVertical);
     m_scroll->setBounceable(true);
+    m_scroll->setTouchEnabled(true);
 
     if (contentHeight > kBodyH) {
         m_scroll->setContentOffset(m_scroll->minContainerOffset());
