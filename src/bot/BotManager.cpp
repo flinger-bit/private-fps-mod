@@ -3,6 +3,7 @@
 #include <Geode/utils/string.hpp>
 
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iomanip>
 #include <system_error>
@@ -12,10 +13,10 @@ using namespace geode::prelude;
 namespace hub {
 
 namespace {
-template <typename T>
-T clampValue(T value, T low, T high) {
-    return std::max(low, std::min(value, high));
-}
+    template <typename T>
+    T clampValue(T value, T low, T high) {
+        return std::max(low, std::min(value, high));
+    }
 }
 
 BotManager& BotManager::shared() {
@@ -47,14 +48,6 @@ void BotManager::setSettingBool(char const* key, bool value) {
     mod->setSettingValue<bool>(key, value);
 }
 
-void BotManager::setSettingInt(char const* key, int value) {
-    auto mod = Mod::get();
-    if (!mod || !mod->hasSetting(key)) {
-        return;
-    }
-    mod->setSettingValue<int>(key, value);
-}
-
 std::filesystem::path BotManager::saveFile() const {
     auto mod = Mod::get();
     if (!mod) {
@@ -65,25 +58,36 @@ std::filesystem::path BotManager::saveFile() const {
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     if (ec) {
-        log::warn("Could not create save directory {}: {}", geode::utils::string::pathToString(dir), ec.message());
+        log::warn(
+            "Could not create save directory {}: {}",
+            geode::utils::string::pathToString(dir),
+            ec.message()
+        );
     }
 
     return dir / "macro.txt";
 }
 
 void BotManager::resetSession() {
-    m_time = 0.0;
     m_player = nullptr;
+    m_time = 0.0;
     m_syntheticInput = false;
     m_allowGameplayFrame = true;
-    m_stepper.reset();
+    m_recording = false;
+    m_playing = false;
+    m_stepperEnabled = false;
+    m_stepPending = false;
+    m_playIndex = 0;
 }
 
 void BotManager::clearMacro() {
     stopRecording();
     stopPlaying();
     m_macro.clear();
-    resetSession();
+    m_playIndex = 0;
+    m_time = 0.0;
+    m_stepPending = false;
+    m_allowGameplayFrame = true;
 }
 
 void BotManager::attachPlayer(PlayerObject* player) {
@@ -98,14 +102,14 @@ PlayerObject* BotManager::activePlayer() const {
 
 void BotManager::startRecording() {
     clearMacro();
-    m_macro.startRecording();
+    m_recording = true;
     setSettingBool("bot_recording", true);
     setSettingBool("bot_playing", false);
     m_time = 0.0;
 }
 
 void BotManager::stopRecording() {
-    m_macro.stopRecording();
+    m_recording = false;
     setSettingBool("bot_recording", false);
 }
 
@@ -121,64 +125,91 @@ void BotManager::startPlaying() {
     }
 
     stopRecording();
-    m_macro.startPlaying();
+    m_playing = true;
     setSettingBool("bot_playing", true);
     m_time = 0.0;
-    m_stepper.reset();
+    m_playIndex = 0;
+    m_stepPending = false;
     m_allowGameplayFrame = true;
 }
 
 void BotManager::stopPlaying() {
-    m_macro.stopPlaying();
+    m_playing = false;
     setSettingBool("bot_playing", false);
     m_syntheticInput = false;
 }
 
 void BotManager::toggleFrameStepper() {
-    auto enabled = !getSettingBool("frame_stepper", false);
-    setSettingBool("frame_stepper", enabled);
-    m_stepper.setEnabled(enabled);
+    m_stepperEnabled = !m_stepperEnabled;
+    setSettingBool("frame_stepper", m_stepperEnabled);
 
-    if (!enabled) {
-        m_stepper.reset();
+    if (!m_stepperEnabled) {
+        m_stepPending = false;
         m_allowGameplayFrame = true;
     }
 }
 
 void BotManager::stepOneFrame() {
-    if (!getSettingBool("frame_stepper", false)) {
+    if (!m_stepperEnabled) {
+        m_stepperEnabled = true;
         setSettingBool("frame_stepper", true);
-        m_stepper.setEnabled(true);
     }
 
-    m_stepper.requestStep();
+    m_stepPending = true;
 }
 
 void BotManager::recordEvent(int button, bool down) {
-    if (!isRecording() || m_syntheticInput) {
+    if (!m_recording || m_syntheticInput) {
         return;
     }
 
-    auto const boost = clampValue(getSettingInt("cbf_boost", 3), 1, 10);
-    m_macro.record(m_time, button, down, boost);
+    int boost = clampValue(getSettingInt("cbf_boost", 3), 1, 10);
+    int sequence = 0;
+
+    if (!m_macro.empty()) {
+        auto const& last = m_macro.back();
+        auto const window = (1.0 / 60.0) / static_cast<double>(std::max(1, boost));
+        if (std::abs(m_time - last.time) <= window) {
+            sequence = last.sequence + 1;
+        }
+    }
+
+    m_macro.push_back(InputFrame{
+        .time = m_time,
+        .button = button,
+        .down = down,
+        .sequence = sequence
+    });
 }
 
 void BotManager::update(float dt) {
-    m_allowGameplayFrame = m_stepper.advanceFrame();
-    if (!m_allowGameplayFrame) {
-        return;
+    m_allowGameplayFrame = true;
+
+    if (m_stepperEnabled) {
+        if (m_stepPending) {
+            m_stepPending = false;
+            m_allowGameplayFrame = true;
+        } else {
+            m_allowGameplayFrame = false;
+            return;
+        }
     }
 
-    if (isRecording() || isPlaying()) {
+    if (m_recording || m_playing) {
         m_time += dt;
     }
 
-    if (!isPlaying() || !m_player) {
+    if (!m_playing || !m_player) {
         return;
     }
 
-    InputFrame frame;
-    while (m_macro.next(m_time, frame)) {
+    while (m_playIndex < m_macro.size()) {
+        auto const frame = m_macro[m_playIndex];
+        if (frame.time > m_time) {
+            break;
+        }
+
+        ++m_playIndex;
         m_syntheticInput = true;
 
         auto const button = static_cast<PlayerButton>(frame.button);
@@ -191,7 +222,7 @@ void BotManager::update(float dt) {
         m_syntheticInput = false;
     }
 
-    if (m_macro.finished()) {
+    if (m_playIndex >= m_macro.size()) {
         stopPlaying();
     }
 }
@@ -210,7 +241,7 @@ void BotManager::saveMacro() {
     }
 
     out << std::setprecision(17);
-    for (auto const& frame : m_macro.frames()) {
+    for (auto const& frame : m_macro) {
         out << frame.time << ' '
             << frame.button << ' '
             << frame.down << ' '
@@ -233,7 +264,9 @@ void BotManager::loadMacro() {
         return;
     }
 
-    clearMacro();
+    m_macro.clear();
+    m_playIndex = 0;
+    m_time = 0.0;
 
     double time = 0.0;
     int button = 0;
@@ -241,7 +274,7 @@ void BotManager::loadMacro() {
     int sequence = 0;
 
     while (in >> time >> button >> down >> sequence) {
-        m_macro.frames().push_back(InputFrame{
+        m_macro.push_back(InputFrame{
             .time = time,
             .button = button,
             .down = down,
@@ -253,15 +286,15 @@ void BotManager::loadMacro() {
 }
 
 bool BotManager::isRecording() const {
-    return getSettingBool("bot_recording", false);
+    return getSettingBool("bot_recording", m_recording);
 }
 
 bool BotManager::isPlaying() const {
-    return getSettingBool("bot_playing", false);
+    return getSettingBool("bot_playing", m_playing);
 }
 
 bool BotManager::isFrameStepEnabled() const {
-    return getSettingBool("frame_stepper", false);
+    return getSettingBool("frame_stepper", m_stepperEnabled);
 }
 
 bool BotManager::allowGameplayFrame() const {
@@ -284,12 +317,12 @@ bool BotManager::shouldIgnorePhysicalInput() const {
     return isPlaying() && getSettingBool("ignore_inputs", true) && !m_syntheticInput;
 }
 
-Macro& BotManager::macro() {
+std::vector<InputFrame>& BotManager::macro() {
     return m_macro;
 }
 
-Macro const& BotManager::macro() const {
+std::vector<InputFrame> const& BotManager::macro() const {
     return m_macro;
 }
 
-}
+} // namespace hub
