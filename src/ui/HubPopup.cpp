@@ -39,10 +39,6 @@ namespace {
             && p.y >= r.origin.y
             && p.y <= r.origin.y + r.size.height;
     }
-
-    char const* tabLabelFor(HubPopup::Tab tab) {
-        return tab == HubPopup::Tab::FPS ? "BOT" : "FPS";
-    }
 }
 
 HubPopup* HubPopup::create() {
@@ -173,7 +169,8 @@ void HubPopup::rebuild() {
     m_statusTop = nullptr;
     m_statusBottom = nullptr;
 
-    auto tabButton = makeTextButton(tabLabelFor(m_tab), this, menu_selector(HubPopup::onTabToggle), 0.30f);
+    auto tabText = (m_tab == Tab::FPS) ? "BOT" : "FPS";
+    auto tabButton = makeTextButton(tabText, this, menu_selector(HubPopup::onTabToggle), 0.30f);
     tabButton->setPosition(CCPointMake(84.f, 20.f));
     m_tabsMenu->addChild(tabButton);
 
@@ -375,6 +372,19 @@ void HubPopup::onSwiftMinus(CCObject*) {
     }
     mod->setSettingValue<int>(
         "swift_clicks",
+        clampValue(mod->getSettingValue<int>("swift_clicks") - 1, 1, 60)
+    );
+    refresh();
+}
+
+void HubPopup::onSwiftDefault(CCObject*) {
+    auto mod = Mod::get();
+    if (!mod || !mod->hasSetting("swift_clicks")) {
+        return;
+    }
+    mod->setSettingValue<int>("swift_clicks", 20);
+    refresh();
+}        "swift_clicks",
         clampValue(mod->getSettingValue<int>("swift_clicks") - 1, 1, 60)
     );
     refresh();
