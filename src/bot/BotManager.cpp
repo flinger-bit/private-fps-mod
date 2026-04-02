@@ -65,7 +65,7 @@ std::filesystem::path BotManager::saveFile() const {
     std::error_code ec;
     std::filesystem::create_directories(dir, ec);
     if (ec) {
-        log::warn("Could not create save directory {}: {}", pathToString(dir), ec.message());
+        log::warn("Could not create save directory {}: {}", geode::utils::string::pathToString(dir), ec.message());
     }
 
     return dir / "macro.txt";
@@ -203,9 +203,9 @@ void BotManager::saveMacro() {
         return;
     }
 
-    std::ofstream out(pathToString(path), std::ios::trunc);
+    std::ofstream out(geode::utils::string::pathToString(path), std::ios::trunc);
     if (!out.is_open()) {
-        log::error("Failed to open macro file for writing: {}", pathToString(path));
+        log::error("Failed to open macro file for writing: {}", geode::utils::string::pathToString(path));
         return;
     }
 
@@ -217,7 +217,7 @@ void BotManager::saveMacro() {
             << frame.sequence << '\n';
     }
 
-    log::info("Saved {} frames to {}", m_macro.size(), pathToString(path));
+    log::info("Saved {} frames to {}", m_macro.size(), geode::utils::string::pathToString(path));
 }
 
 void BotManager::loadMacro() {
@@ -227,9 +227,9 @@ void BotManager::loadMacro() {
         return;
     }
 
-    std::ifstream in(pathToString(path));
+    std::ifstream in(geode::utils::string::pathToString(path));
     if (!in.is_open()) {
-        log::warn("Macro file not found: {}", pathToString(path));
+        log::warn("Macro file not found: {}", geode::utils::string::pathToString(path));
         return;
     }
 
@@ -249,7 +249,7 @@ void BotManager::loadMacro() {
         });
     }
 
-    log::info("Loaded {} frames from {}", m_macro.size(), pathToString(path));
+    log::info("Loaded {} frames from {}", m_macro.size(), geode::utils::string::pathToString(path));
 }
 
 bool BotManager::isRecording() const {
