@@ -494,6 +494,10 @@ class $modify(MyPlayLayer, PlayLayer) {
         BotManager::shared().resetSession();
         PlayLayer::onExit();
     }
+
+    void onHub(CCObject*) {
+        HubPopup::toggle();
+    }
 };
 
 class $modify(MyPlayerObject, PlayerObject) {
