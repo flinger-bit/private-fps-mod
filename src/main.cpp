@@ -1,6 +1,5 @@
 #include <Geode/Geode.hpp>
 #include <Geode/modify/GameManager.hpp>
-#include <Geode/modify/MenuLayer.hpp>
 #include <Geode/modify/PauseLayer.hpp>
 #include <Geode/modify/PlayLayer.hpp>
 #include <Geode/modify/PlayerObject.hpp>
@@ -15,9 +14,9 @@ using namespace geode::prelude;
 using namespace hub;
 
 namespace {
-constexpr int kHubButtonTag = 0x5001;
 constexpr float kPanelW = 320.f;
 constexpr float kPanelH = 460.f;
+constexpr int kPauseButtonTag = 0x5001;
 
 template <typename T>
 T clampValue(T value, T low, T high) {
@@ -47,7 +46,7 @@ CCMenuItemSpriteExtra* makeIconButton(CCObject* target, SEL_MenuHandler callback
 void addHubButtonToLayer(CCLayer* layer, CCObject* target, SEL_MenuHandler callback, CCPoint position, float scale = 0.30f) {
     auto menu = CCMenu::create();
     menu->setPosition(CCPointZero);
-    menu->setTag(kHubButtonTag);
+    menu->setTag(kPauseButtonTag);
 
     auto button = makeIconButton(target, callback, scale);
     if (!button) {
@@ -83,38 +82,35 @@ protected:
     }
 
     void refresh() {
-        auto mod = Mod::get();
-        if (!mod) {
-            return;
-        }
+        if (m_tab == 0) {
+            if (m_statusTop) {
+                auto enabled = getBool("fps_enabled", true);
+                auto target = clampValue(getInt("fps_target", 240), 60, 360);
 
-        if (m_tab == 0 && m_statusTop) {
-            auto enabled = getBool("fps_enabled", true);
-            auto target = clampValue(getInt("fps_target", 240), 60, 360);
+                std::string text = "FPS: ";
+                text += enabled ? "ON" : "OFF";
+                text += " | Target: ";
+                text += std::to_string(target);
+                m_statusTop->setString(text.c_str());
+            }
+        } else {
+            if (m_statusTop && m_statusBottom) {
+                auto& bot = BotManager::shared();
 
-            std::string text = "FPS: ";
-            text += enabled ? "ON" : "OFF";
-            text += " | Target: ";
-            text += std::to_string(target);
-            m_statusTop->setString(text.c_str());
-        }
+                std::string top = "BOT: ";
+                top += bot.isRecording() ? "RECORDING" : (bot.isPlaying() ? "PLAYING" : "IDLE");
+                top += " | Frames: ";
+                top += std::to_string(bot.macro().size());
+                m_statusTop->setString(top.c_str());
 
-        if (m_tab == 1 && m_statusTop && m_statusBottom) {
-            auto& bot = BotManager::shared();
-
-            std::string top = "BOT: ";
-            top += bot.isRecording() ? "RECORDING" : (bot.isPlaying() ? "PLAYING" : "IDLE");
-            top += " | Frames: ";
-            top += std::to_string(bot.macro().size());
-            m_statusTop->setString(top.c_str());
-
-            std::string bottom = "Ignore: ";
-            bottom += getBool("ignore_inputs", true) ? "ON" : "OFF";
-            bottom += " | FrameStep: ";
-            bottom += getBool("frame_stepper", false) ? "ON" : "OFF";
-            bottom += " | CBF: ";
-            bottom += std::to_string(clampValue(getInt("cbf_boost", 3), 1, 10));
-            m_statusBottom->setString(bottom.c_str());
+                std::string bottom = "Ignore: ";
+                bottom += getBool("ignore_inputs", true) ? "ON" : "OFF";
+                bottom += " | FrameStep: ";
+                bottom += getBool("frame_stepper", false) ? "ON" : "OFF";
+                bottom += " | CBF: ";
+                bottom += std::to_string(clampValue(getInt("cbf_boost", 3), 1, 10));
+                m_statusBottom->setString(bottom.c_str());
+            }
         }
     }
 
@@ -395,29 +391,6 @@ public:
 };
 }
 
-class $modify(MyMenuLayer, MenuLayer) {
-    bool init() {
-        if (!MenuLayer::init()) {
-            return false;
-        }
-
-        auto win = CCDirector::sharedDirector()->getWinSize();
-        addHubButtonToLayer(
-            this,
-            this,
-            menu_selector(MyMenuLayer::onHub),
-            CCPointMake(win.width - 24.f, win.height - 24.f),
-            0.26f
-        );
-
-        return true;
-    }
-
-    void onHub(CCObject*) {
-        HubPopup::toggle();
-    }
-};
-
 class $modify(MyPauseLayer, PauseLayer) {
     void customSetup() {
         PauseLayer::customSetup();
@@ -461,17 +434,6 @@ class $modify(MyPlayLayer, PlayLayer) {
     void onEnterTransitionDidFinish() {
         PlayLayer::onEnterTransitionDidFinish();
         BotManager::shared().resetSession();
-
-        if (!this->getChildByTag(kHubButtonTag)) {
-            auto win = CCDirector::sharedDirector()->getWinSize();
-            addHubButtonToLayer(
-                this,
-                this,
-                menu_selector(MyPlayLayer::onHub),
-                CCPointMake(win.width - 28.f, win.height - 28.f),
-                0.26f
-            );
-        }
     }
 
     void resetLevel() {
@@ -493,10 +455,6 @@ class $modify(MyPlayLayer, PlayLayer) {
     void onExit() {
         BotManager::shared().resetSession();
         PlayLayer::onExit();
-    }
-
-    void onHub(CCObject*) {
-        HubPopup::toggle();
     }
 };
 
