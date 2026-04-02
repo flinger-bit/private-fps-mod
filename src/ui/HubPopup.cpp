@@ -39,6 +39,10 @@ namespace {
             && p.y >= r.origin.y
             && p.y <= r.origin.y + r.size.height;
     }
+
+    char const* tabLabelFor(HubPopup::Tab tab) {
+        return tab == HubPopup::Tab::FPS ? "BOT" : "FPS";
+    }
 }
 
 HubPopup* HubPopup::create() {
@@ -169,13 +173,9 @@ void HubPopup::rebuild() {
     m_statusTop = nullptr;
     m_statusBottom = nullptr;
 
-    auto fpsTab = makeTextButton("FPS", this, menu_selector(HubPopup::onTabFPS), 0.30f);
-    fpsTab->setPosition(CCPointMake(62.f, 20.f));
-    m_tabsMenu->addChild(fpsTab);
-
-    auto botTab = makeTextButton("BOT", this, menu_selector(HubPopup::onTabBot), 0.30f);
-    botTab->setPosition(CCPointMake(160.f, 20.f));
-    m_tabsMenu->addChild(botTab);
+    auto tabButton = makeTextButton(tabLabelFor(m_tab), this, menu_selector(HubPopup::onTabToggle), 0.30f);
+    tabButton->setPosition(CCPointMake(84.f, 20.f));
+    m_tabsMenu->addChild(tabButton);
 
     auto close = makeTextButton("X", this, menu_selector(HubPopup::onClose), 0.32f);
     close->setPosition(CCPointMake(282.f, 20.f));
@@ -243,13 +243,8 @@ void HubPopup::toggle() {
     scene->addChild(s_open, 99999);
 }
 
-void HubPopup::onTabFPS(CCObject*) {
-    m_tab = Tab::FPS;
-    rebuild();
-}
-
-void HubPopup::onTabBot(CCObject*) {
-    m_tab = Tab::BOT;
+void HubPopup::onTabToggle(CCObject*) {
+    m_tab = (m_tab == Tab::FPS) ? Tab::BOT : Tab::FPS;
     rebuild();
 }
 
