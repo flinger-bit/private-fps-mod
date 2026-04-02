@@ -25,6 +25,23 @@ T clampValue(T value, T low, T high) {
 
 class HubPopup;
 static HubPopup* s_open = nullptr;
+static bool s_swiftProcessing = false;
+
+bool getBool(char const* key, bool fallback = false) {
+    auto mod = Mod::get();
+    if (!mod || !mod->hasSetting(key)) {
+        return fallback;
+    }
+    return mod->getSettingValue<bool>(key);
+}
+
+int getInt(char const* key, int fallback = 0) {
+    auto mod = Mod::get();
+    if (!mod || !mod->hasSetting(key)) {
+        return fallback;
+    }
+    return mod->getSettingValue<int>(key);
+}
 
 CCMenuItemSpriteExtra* makeTextButton(char const* text, CCObject* target, SEL_MenuHandler callback, float scale = 0.25f) {
     auto label = CCLabelBMFont::create(text, "bigFont.fnt");
@@ -58,6 +75,30 @@ void addHubButtonToLayer(CCLayer* layer, CCObject* target, SEL_MenuHandler callb
     layer->addChild(menu, 99999);
 }
 
+void performSwiftDuplication(PlayerObject* player, PlayerButton button) {
+    if (!player || s_swiftProcessing) {
+        return;
+    }
+
+    if (!getBool("swift_enabled", true)) {
+        return;
+    }
+
+    int clicks = clampValue(getInt("swift_clicks", 20), 1, 60);
+    if (clicks <= 1) {
+        return;
+    }
+
+    s_swiftProcessing = true;
+
+    for (int i = 1; i < clicks; ++i) {
+        player->releaseButton(button);
+        player->pushButton(button);
+    }
+
+    s_swiftProcessing = false;
+}
+
 class HubPopup : public CCLayer {
 protected:
     int m_tab = 0;
@@ -65,27 +106,11 @@ protected:
     CCLabelBMFont* m_statusTop = nullptr;
     CCLabelBMFont* m_statusBottom = nullptr;
 
-    bool getBool(char const* key, bool fallback = false) const {
-        auto mod = Mod::get();
-        if (!mod || !mod->hasSetting(key)) {
-            return fallback;
-        }
-        return mod->getSettingValue<bool>(key);
-    }
-
-    int getInt(char const* key, int fallback = 0) const {
-        auto mod = Mod::get();
-        if (!mod || !mod->hasSetting(key)) {
-            return fallback;
-        }
-        return mod->getSettingValue<int>(key);
-    }
-
     void refresh() {
         if (m_tab == 0) {
             if (m_statusTop) {
-                auto enabled = getBool("fps_enabled", true);
-                auto target = clampValue(getInt("fps_target", 240), 60, 360);
+                bool enabled = getBool("fps_enabled", true);
+                int target = clampValue(getInt("fps_target", 240), 60, 360);
 
                 std::string text = "FPS: ";
                 text += enabled ? "ON" : "OFF";
@@ -93,24 +118,27 @@ protected:
                 text += std::to_string(target);
                 m_statusTop->setString(text.c_str());
             }
-        } else {
-            if (m_statusTop && m_statusBottom) {
-                auto& bot = BotManager::shared();
+            return;
+        }
 
-                std::string top = "BOT: ";
-                top += bot.isRecording() ? "RECORDING" : (bot.isPlaying() ? "PLAYING" : "IDLE");
-                top += " | Frames: ";
-                top += std::to_string(bot.macro().size());
-                m_statusTop->setString(top.c_str());
+        if (m_statusTop && m_statusBottom) {
+            auto& bot = BotManager::shared();
 
-                std::string bottom = "Ignore: ";
-                bottom += getBool("ignore_inputs", true) ? "ON" : "OFF";
-                bottom += " | FrameStep: ";
-                bottom += getBool("frame_stepper", false) ? "ON" : "OFF";
-                bottom += " | CBF: ";
-                bottom += std::to_string(clampValue(getInt("cbf_boost", 3), 1, 10));
-                m_statusBottom->setString(bottom.c_str());
-            }
+            std::string top = "BOT: ";
+            top += bot.isRecording() ? "RECORDING" : (bot.isPlaying() ? "PLAYING" : "IDLE");
+            top += " | Frames: ";
+            top += std::to_string(bot.macro().size());
+            m_statusTop->setString(top.c_str());
+
+            std::string bottom = "Ignore: ";
+            bottom += getBool("ignore_inputs", true) ? "ON" : "OFF";
+            bottom += " | FrameStep: ";
+            bottom += getBool("frame_stepper", false) ? "ON" : "OFF";
+            bottom += " | Swift: ";
+            bottom += getBool("swift_enabled", true) ? "ON" : "OFF";
+            bottom += " | Cnt: ";
+            bottom += std::to_string(clampValue(getInt("swift_clicks", 20), 1, 60));
+            m_statusBottom->setString(bottom.c_str());
         }
     }
 
@@ -162,12 +190,12 @@ protected:
     void buildBotTab(CCMenu* menu) {
         m_statusTop = CCLabelBMFont::create("", "bigFont.fnt");
         m_statusTop->setScale(0.21f);
-        m_statusTop->setPosition(CCPointMake(kPanelW / 2.f, 345.f));
+        m_statusTop->setPosition(CCPointMake(kPanelW / 2.f, 350.f));
         m_content->addChild(m_statusTop);
 
         m_statusBottom = CCLabelBMFont::create("", "bigFont.fnt");
         m_statusBottom->setScale(0.18f);
-        m_statusBottom->setPosition(CCPointMake(kPanelW / 2.f, 325.f));
+        m_statusBottom->setPosition(CCPointMake(kPanelW / 2.f, 326.f));
         m_content->addChild(m_statusBottom);
 
         auto rec = makeTextButton("REC", this, menu_selector(HubPopup::onRecord), 0.22f);
@@ -205,6 +233,22 @@ protected:
         auto ignore = makeTextButton("IGNORE", this, menu_selector(HubPopup::onIgnoreToggle), 0.18f);
         ignore->setPosition(CCPointMake(240.f, 165.f));
         menu->addChild(ignore);
+
+        auto swiftToggle = makeTextButton("SWIFT", this, menu_selector(HubPopup::onSwiftToggle), 0.20f);
+        swiftToggle->setPosition(CCPointMake(62.f, 108.f));
+        menu->addChild(swiftToggle);
+
+        auto swiftMinus = makeTextButton("-", this, menu_selector(HubPopup::onSwiftMinus), 0.30f);
+        swiftMinus->setPosition(CCPointMake(128.f, 108.f));
+        menu->addChild(swiftMinus);
+
+        auto swiftPlus = makeTextButton("+", this, menu_selector(HubPopup::onSwiftPlus), 0.30f);
+        swiftPlus->setPosition(CCPointMake(192.f, 108.f));
+        menu->addChild(swiftPlus);
+
+        auto swiftDefault = makeTextButton("20", this, menu_selector(HubPopup::onSwiftDefault), 0.22f);
+        swiftDefault->setPosition(CCPointMake(258.f, 108.f));
+        menu->addChild(swiftDefault);
     }
 
 public:
@@ -373,6 +417,42 @@ public:
         refresh();
     }
 
+    void onSwiftToggle(CCObject*) {
+        auto mod = Mod::get();
+        if (!mod || !mod->hasSetting("swift_enabled")) {
+            return;
+        }
+        mod->setSettingValue<bool>("swift_enabled", !mod->getSettingValue<bool>("swift_enabled"));
+        refresh();
+    }
+
+    void onSwiftMinus(CCObject*) {
+        auto mod = Mod::get();
+        if (!mod || !mod->hasSetting("swift_clicks")) {
+            return;
+        }
+        mod->setSettingValue<int>("swift_clicks", clampValue(mod->getSettingValue<int>("swift_clicks") - 1, 1, 60));
+        refresh();
+    }
+
+    void onSwiftPlus(CCObject*) {
+        auto mod = Mod::get();
+        if (!mod || !mod->hasSetting("swift_clicks")) {
+            return;
+        }
+        mod->setSettingValue<int>("swift_clicks", clampValue(mod->getSettingValue<int>("swift_clicks") + 1, 1, 60));
+        refresh();
+    }
+
+    void onSwiftDefault(CCObject*) {
+        auto mod = Mod::get();
+        if (!mod || !mod->hasSetting("swift_clicks")) {
+            return;
+        }
+        mod->setSettingValue<int>("swift_clicks", 20);
+        refresh();
+    }
+
     static void toggle() {
         if (s_open && s_open->getParent()) {
             s_open->removeFromParentAndCleanup(true);
@@ -478,7 +558,13 @@ class $modify(MyPlayerObject, PlayerObject) {
             bot.recordEvent(static_cast<int>(button), true);
         }
 
-        return PlayerObject::pushButton(button);
+        bool result = PlayerObject::pushButton(button);
+
+        if (!s_swiftProcessing) {
+            performSwiftDuplication(this, button);
+        }
+
+        return result;
     }
 
     bool releaseButton(PlayerButton button) {
