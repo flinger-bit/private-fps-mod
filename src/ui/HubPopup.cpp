@@ -17,7 +17,9 @@ using cocos2d::extension::CCScale9Sprite;
 using hub::BotManager;
 
 namespace {
-    static HubPopup* s_open = nullptr;
+    // Tag used to find an existing popup attached to the running scene.
+    // Avoids keeping a static raw pointer that goes stale across scene changes.
+    constexpr int kHubTag = 0x70667048; // 'pfpH'
 
     constexpr float kPanelW   = 480.f;
     constexpr float kPanelH   = 280.f;
@@ -52,9 +54,22 @@ bool HubPopup::init() {
     setContentSize(win);
     setPosition(CCPointZero);
     setTouchEnabled(true);
+    setTag(kHubTag);
 
-    // ---- Panel: real GD CCScale9Sprite background ----
+    // ---- Panel: real GD CCScale9Sprite background, with fallbacks ----
     m_panel = CCScale9Sprite::create("GJ_square02.png");
+    if (!m_panel) {
+        m_panel = CCScale9Sprite::create("GJ_square01.png");
+    }
+    if (!m_panel) {
+        m_panel = CCScale9Sprite::createWithSpriteFrameName("square02_001.png");
+    }
+    if (!m_panel) {
+        log::error(
+            "HubPopup: every CCScale9Sprite candidate returned null; aborting init"
+        );
+        return false;
+    }
     m_panel->setContentSize({ kPanelW, kPanelH });
     m_panel->setPosition({ win.width / 2.f, win.height / 2.f });
     m_panel->setOpacity(235);
@@ -88,11 +103,15 @@ bool HubPopup::init() {
     if (!closeSprite) {
         closeSprite = CCSprite::create("GJ_button_06.png");
     }
-    closeSprite->setScale(0.55f);
-    auto closeBtn = CCMenuItemSpriteExtra::create(
-        closeSprite, this, menu_selector(HubPopup::onClose)
-    );
-    closeMenu->addChild(closeBtn);
+    if (closeSprite) {
+        closeSprite->setScale(0.55f);
+        auto closeBtn = CCMenuItemSpriteExtra::create(
+            closeSprite, this, menu_selector(HubPopup::onClose)
+        );
+        if (closeBtn) closeMenu->addChild(closeBtn);
+    } else {
+        log::warn("HubPopup: no close sprite available");
+    }
 
     auto headerSep = CCDrawNode::create();
     headerSep->drawSegment(
@@ -298,19 +317,24 @@ void HubPopup::refresh() {
 }
 
 void HubPopup::toggle() {
-    if (s_open && !s_open->getParent()) s_open = nullptr;
+    auto director = CCDirector::sharedDirector();
+    if (!director) return;
+    auto scene = director->getRunningScene();
+    if (!scene) return;
 
-    if (s_open && s_open->getParent()) {
-        s_open->removeFromParentAndCleanup(true);
-        s_open = nullptr;
+    // Find any existing popup in the current scene by tag — this is safe across
+    // scene transitions because we never dereference a stale raw pointer.
+    if (auto existing = scene->getChildByTag(kHubTag)) {
+        existing->removeFromParentAndCleanup(true);
         return;
     }
 
-    auto scene = CCDirector::sharedDirector()->getRunningScene();
-    if (!scene) return;
-
-    s_open = HubPopup::create();
-    scene->addChild(s_open, 99999);
+    auto popup = HubPopup::create();
+    if (!popup) {
+        log::error("HubPopup::toggle: HubPopup::create() returned null");
+        return;
+    }
+    scene->addChild(popup, 99999);
 }
 
 void HubPopup::onSidebarTab(CCObject* sender) {
@@ -322,9 +346,10 @@ void HubPopup::onSidebarTab(CCObject* sender) {
 }
 
 void HubPopup::onClose(CCObject*) {
-    if (s_open && s_open->getParent()) {
-        s_open->removeFromParentAndCleanup(true);
-        s_open = nullptr;
+    // Removing ourselves is enough; the toggle()/tag-lookup path no longer
+    // depends on a static pointer, so no extra bookkeeping is needed.
+    if (this->getParent()) {
+        this->removeFromParentAndCleanup(true);
     }
 }
 
