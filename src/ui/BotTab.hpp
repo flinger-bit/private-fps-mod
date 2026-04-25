@@ -1,128 +1,77 @@
 #pragma once
 
 #include <Geode/Geode.hpp>
+
 #include "HubPopup.hpp"
+#include "UiHelpers.hpp"
 #include "../bot/BotManager.hpp"
 
-#include <algorithm>
 #include <string>
 
 using namespace geode::prelude;
 
 namespace hub::ui::bot {
 
-template <typename T>
-inline T clampValue(T value, T low, T high) {
-    return std::max(low, std::min(value, high));
-}
-
-inline bool getBool(char const* key, bool fallback = false) {
-    auto mod = Mod::get();
-    if (!mod || !mod->hasSetting(key)) {
-        return fallback;
-    }
-    return mod->getSettingValue<bool>(key);
-}
-
-inline int getInt(char const* key, int fallback = 0) {
-    auto mod = Mod::get();
-    if (!mod || !mod->hasSetting(key)) {
-        return fallback;
-    }
-    return mod->getSettingValue<int>(key);
-}
-
-inline CCMenuItemSpriteExtra* makeButton(char const* text, CCObject* target, SEL_MenuHandler cb, float scale = 0.22f) {
-    auto label = CCLabelBMFont::create(text, "bigFont.fnt");
-    label->setScale(scale);
-    return CCMenuItemSpriteExtra::create(label, target, cb);
-}
-
 inline void build(
-    CCLayer* content,
+    CCNode* content,
     CCMenu* menu,
     CCLabelBMFont*& statusTop,
     CCLabelBMFont*& statusBottom,
-    float contentHeight,
     CCObject* target
 ) {
-    const float cx = 160.f;
+    auto size = content->getContentSize();
+    const float cx = size.width / 2.f;
+    const float top = size.height;
 
-    auto title = CCLabelBMFont::create("BOT", "bigFont.fnt");
-    title->setScale(0.30f);
-    title->setPosition(CCPointMake(cx, contentHeight - 52.f));
+    auto title = CCLabelBMFont::create("Bot / Macro", "bigFont.fnt");
+    title->setScale(0.55f);
+    title->setAnchorPoint({ 0.5f, 1.f });
+    title->setPosition({ cx, top - 10.f });
     content->addChild(title);
 
-    auto hint = CCLabelBMFont::create("Record / play / step", "bigFont.fnt");
-    hint->setScale(0.16f);
-    hint->setPosition(CCPointMake(cx, contentHeight - 76.f));
-    content->addChild(hint);
-
-    statusTop = CCLabelBMFont::create("", "bigFont.fnt");
-    statusTop->setScale(0.19f);
-    statusTop->setPosition(CCPointMake(cx, contentHeight - 28.f));
+    statusTop = CCLabelBMFont::create("BOT: IDLE", "goldFont.fnt");
+    statusTop->setScale(0.50f);
+    statusTop->setAnchorPoint({ 0.5f, 1.f });
+    statusTop->setPosition({ cx, top - 50.f });
     content->addChild(statusTop);
 
-    statusBottom = CCLabelBMFont::create("", "bigFont.fnt");
-    statusBottom->setScale(0.16f);
-    statusBottom->setPosition(CCPointMake(cx, contentHeight - 48.f));
+    statusBottom = CCLabelBMFont::create("Frames: 0", "chatFont.fnt");
+    statusBottom->setScale(0.65f);
+    statusBottom->setAnchorPoint({ 0.5f, 1.f });
+    statusBottom->setPosition({ cx, top - 80.f });
+    statusBottom->setColor({ 200, 220, 240 });
     content->addChild(statusBottom);
 
-    auto rec = makeButton("REC", target, menu_selector(HubPopup::onRecord), 0.22f);
-    rec->setPosition(CCPointMake(80.f, contentHeight - 128.f));
-    menu->addChild(rec);
+    auto row1 = CCMenu::create();
+    row1->setContentSize({ size.width - 30.f, 44.f });
+    row1->setPosition({ cx, top - 130.f });
+    row1->setLayout(RowLayout::create()->setGap(10.f));
+    content->addChild(row1);
 
-    auto play = makeButton("PLAY", target, menu_selector(HubPopup::onPlay), 0.22f);
-    play->setPosition(CCPointMake(160.f, contentHeight - 128.f));
-    menu->addChild(play);
+    row1->addChild(hub::ui::makeBtn("REC",  target, menu_selector(HubPopup::onRecord), 0.7f, 70.f, "GJ_button_06.png"));
+    row1->addChild(hub::ui::makeBtn("PLAY", target, menu_selector(HubPopup::onPlay),   0.7f, 70.f, "GJ_button_01.png"));
+    row1->addChild(hub::ui::makeBtn("STOP", target, menu_selector(HubPopup::onStop),   0.7f, 70.f, "GJ_button_03.png"));
+    row1->updateLayout();
 
-    auto stop = makeButton("STOP", target, menu_selector(HubPopup::onStop), 0.22f);
-    stop->setPosition(CCPointMake(240.f, contentHeight - 128.f));
-    menu->addChild(stop);
+    auto row2 = CCMenu::create();
+    row2->setContentSize({ size.width - 30.f, 44.f });
+    row2->setPosition({ cx, top - 185.f });
+    row2->setLayout(RowLayout::create()->setGap(10.f));
+    content->addChild(row2);
 
-    auto save = makeButton("SAVE", target, menu_selector(HubPopup::onSave), 0.22f);
-    save->setPosition(CCPointMake(80.f, contentHeight - 188.f));
-    menu->addChild(save);
+    row2->addChild(hub::ui::makeBtn("Save",  target, menu_selector(HubPopup::onSave),  0.65f, 70.f));
+    row2->addChild(hub::ui::makeBtn("Load",  target, menu_selector(HubPopup::onLoad),  0.65f, 70.f));
+    row2->addChild(hub::ui::makeBtn("Clear", target, menu_selector(HubPopup::onClear), 0.65f, 70.f, "GJ_button_06.png"));
+    row2->updateLayout();
 
-    auto load = makeButton("LOAD", target, menu_selector(HubPopup::onLoad), 0.22f);
-    load->setPosition(CCPointMake(160.f, contentHeight - 188.f));
-    menu->addChild(load);
-
-    auto clear = makeButton("CLEAR", target, menu_selector(HubPopup::onClear), 0.20f);
-    clear->setPosition(CCPointMake(240.f, contentHeight - 188.f));
-    menu->addChild(clear);
-
-    auto frame = makeButton("FRAME", target, menu_selector(HubPopup::onFrameStepToggle), 0.20f);
-    frame->setPosition(CCPointMake(80.f, contentHeight - 248.f));
-    menu->addChild(frame);
-
-    auto step = makeButton("STEP", target, menu_selector(HubPopup::onStep), 0.22f);
-    step->setPosition(CCPointMake(160.f, contentHeight - 248.f));
-    menu->addChild(step);
-
-    auto ignore = makeButton("IGNORE", target, menu_selector(HubPopup::onIgnoreToggle), 0.18f);
-    ignore->setPosition(CCPointMake(240.f, contentHeight - 248.f));
-    menu->addChild(ignore);
-
-    auto swiftToggle = makeButton("SWIFT", target, menu_selector(HubPopup::onSwiftToggle), 0.20f);
-    swiftToggle->setPosition(CCPointMake(62.f, contentHeight - 308.f));
-    menu->addChild(swiftToggle);
-
-    auto swiftMinus = makeButton("-", target, menu_selector(HubPopup::onSwiftMinus), 0.30f);
-    swiftMinus->setPosition(CCPointMake(128.f, contentHeight - 308.f));
-    menu->addChild(swiftMinus);
-
-    auto swiftPlus = makeButton("+", target, menu_selector(HubPopup::onSwiftPlus), 0.30f);
-    swiftPlus->setPosition(CCPointMake(192.f, contentHeight - 308.f));
-    menu->addChild(swiftPlus);
-
-    auto swiftDefault = makeButton("20", target, menu_selector(HubPopup::onSwiftDefault), 0.22f);
-    swiftDefault->setPosition(CCPointMake(258.f, contentHeight - 308.f));
-    menu->addChild(swiftDefault);
-
-    auto note = CCLabelBMFont::create("Macro file is saved in mod storage", "bigFont.fnt");
-    note->setScale(0.14f);
-    note->setPosition(CCPointMake(cx, contentHeight - 372.f));
+    auto note = CCLabelBMFont::create(
+        "Macro is saved into mod storage as macro.txt",
+        "chatFont.fnt"
+    );
+    note->setScale(0.55f);
+    note->setAnchorPoint({ 0.5f, 1.f });
+    note->setPosition({ cx, top - 235.f });
+    note->setColor({ 170, 190, 210 });
     content->addChild(note);
 }
 
@@ -130,23 +79,22 @@ inline void refresh(CCLabelBMFont* statusTop, CCLabelBMFont* statusBottom) {
     auto& bot = BotManager::shared();
 
     if (statusTop) {
-        std::string top = "BOT: ";
-        top += bot.isRecording() ? "RECORDING" : (bot.isPlaying() ? "PLAYING" : "IDLE");
-        top += " | Frames: ";
-        top += std::to_string(bot.macro().size());
-        statusTop->setString(top.c_str());
+        char const* state = bot.isRecording() ? "RECORDING"
+                          : bot.isPlaying()   ? "PLAYING"
+                                              : "IDLE";
+        std::string text = "BOT: ";
+        text += state;
+        statusTop->setString(text.c_str());
+
+        if (bot.isRecording())      statusTop->setColor({ 240, 100, 100 });
+        else if (bot.isPlaying())   statusTop->setColor({ 120, 240, 160 });
+        else                        statusTop->setColor({ 230, 220, 120 });
     }
 
     if (statusBottom) {
-        std::string bottom = "Ignore: ";
-        bottom += getBool("ignore_inputs", true) ? "ON" : "OFF";
-        bottom += " | FrameStep: ";
-        bottom += getBool("frame_stepper", false) ? "ON" : "OFF";
-        bottom += " | Swift: ";
-        bottom += getBool("swift_enabled", true) ? "ON" : "OFF";
-        bottom += " | Cnt: ";
-        bottom += std::to_string(clampValue(getInt("swift_clicks", 20), 1, 60));
-        statusBottom->setString(bottom.c_str());
+        std::string text = "Frames: ";
+        text += std::to_string(bot.macro().size());
+        statusBottom->setString(text.c_str());
     }
 }
 

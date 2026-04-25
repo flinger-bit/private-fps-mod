@@ -1,43 +1,39 @@
 #include "HubPopup.hpp"
+#include "UiHelpers.hpp"
 
 #include "FpsTab.hpp"
 #include "BotTab.hpp"
+#include "FrameTab.hpp"
+#include "SwiftTab.hpp"
+#include "AboutTab.hpp"
+
 #include "../bot/BotManager.hpp"
 
-#include <Geode/utils/string.hpp>
-#include <cocos-ext.h>
-
-#include <algorithm>
-#include <string>
+#include <Geode/binding/ButtonSprite.hpp>
+#include <Geode/binding/CCMenuItemSpriteExtra.hpp>
+#include <Geode/cocos/draw_nodes/CCDrawNode.h>
+#include <Geode/cocos/extensions/GUI/CCScale9Sprite.h>
 
 using namespace geode::prelude;
+using cocos2d::extension::CCScale9Sprite;
 using hub::BotManager;
 
 namespace {
     static HubPopup* s_open = nullptr;
 
-    constexpr float kPanelW = 320.f;
-    constexpr float kPanelH = 460.f;
-    constexpr float kHeaderH = 72.f;
-    constexpr float kBodyH = kPanelH - kHeaderH;
-    constexpr float kDragH = 12.f;
-
-    template <typename T>
-    T clampValue(T value, T low, T high) {
-        return std::max(low, std::min(value, high));
-    }
-
-    CCMenuItemSpriteExtra* makeTextButton(char const* text, CCObject* target, SEL_MenuHandler callback, float scale = 0.25f) {
-        auto label = CCLabelBMFont::create(text, "bigFont.fnt");
-        label->setScale(scale);
-        return CCMenuItemSpriteExtra::create(label, target, callback);
-    }
+    constexpr float kPanelW   = 480.f;
+    constexpr float kPanelH   = 280.f;
+    constexpr float kSidebarW = 110.f;
+    constexpr float kHeaderH  = 30.f;
+    constexpr float kPadding  = 8.f;
 
     bool pointInRect(CCPoint const& p, CCRect const& r) {
-        return p.x >= r.origin.x
-            && p.x <= r.origin.x + r.size.width
-            && p.y >= r.origin.y
-            && p.y <= r.origin.y + r.size.height;
+        return p.x >= r.origin.x && p.x <= r.origin.x + r.size.width
+            && p.y >= r.origin.y && p.y <= r.origin.y + r.size.height;
+    }
+
+    int tabId(HubPopup::Tab tab) {
+        return static_cast<int>(tab);
     }
 }
 
@@ -52,54 +48,114 @@ HubPopup* HubPopup::create() {
 }
 
 bool HubPopup::init() {
-    if (!CCLayerColor::initWithColor(ccc4(0, 0, 0, 150))) {
-        return false;
-    }
+    if (!CCLayerColor::initWithColor(ccc4(0, 0, 0, 140))) return false;
 
     auto win = CCDirector::sharedDirector()->getWinSize();
     setContentSize(win);
     setPosition(CCPointZero);
     setTouchEnabled(true);
 
-    auto panelX = (win.width - kPanelW) / 2.f;
-    auto panelY = (win.height - kPanelH) / 2.f;
-
-    m_panel = CCLayerColor::create(ccc4(20, 20, 20, 242));
-    m_panel->setContentSize(CCSizeMake(kPanelW, kPanelH));
-    m_panel->setAnchorPoint(CCPointZero);
-    m_panel->setPosition(CCPointMake(panelX, panelY));
+    // ---- Panel: real GD CCScale9Sprite background ----
+    m_panel = CCScale9Sprite::create("GJ_square02.png");
+    m_panel->setContentSize({ kPanelW, kPanelH });
+    m_panel->setPosition({ win.width / 2.f, win.height / 2.f });
+    m_panel->setOpacity(235);
     addChild(m_panel, 1);
 
-    m_body = CCLayer::create();
-    m_body->setPosition(CCPointZero);
-    m_body->setContentSize(CCSizeMake(kPanelW, kBodyH));
-    m_panel->addChild(m_body, 1);
+    // ---- Border drawn with CCDrawNode (cyan accent) ----
+    m_border = CCDrawNode::create();
+    m_border->drawRect(
+        { -kPanelW / 2.f + 2.f, -kPanelH / 2.f + 2.f },
+        {  kPanelW / 2.f - 2.f,  kPanelH / 2.f - 2.f },
+        { 0, 0, 0, 0 },
+        2.f,
+        { 70.f / 255.f, 220.f / 255.f, 220.f / 255.f, 0.9f }
+    );
+    m_panel->addChild(m_border, 2);
 
-    m_header = CCLayerColor::create(ccc4(34, 34, 34, 255));
-    m_header->setContentSize(CCSizeMake(kPanelW, kHeaderH));
-    m_header->setAnchorPoint(CCPointZero);
-    m_header->setPosition(CCPointMake(0.f, kBodyH));
-    m_panel->addChild(m_header, 3);
+    // ---- Header inside panel-local coordinates ----
+    auto headerY = kPanelH - kHeaderH / 2.f - 4.f;
 
-    auto dragStrip = CCLayerColor::create(ccc4(255, 255, 255, 24));
-    dragStrip->setContentSize(CCSizeMake(kPanelW, kDragH));
-    dragStrip->setAnchorPoint(CCPointZero);
-    dragStrip->setPosition(CCPointMake(0.f, kHeaderH - kDragH));
-    m_header->addChild(dragStrip, 0);
+    m_title = CCLabelBMFont::create("Private FPS Pro", "bigFont.fnt");
+    m_title->setScale(0.45f);
+    m_title->setAnchorPoint({ 0.f, 0.5f });
+    m_title->setPosition({ 14.f, headerY });
+    m_panel->addChild(m_title, 5);
 
-    auto title = CCLabelBMFont::create("PRIVATE HUB", "bigFont.fnt");
-    title->setScale(0.42f);
-    title->setPosition(CCPointMake(104.f, 52.f));
-    m_header->addChild(title, 1);
+    auto closeMenu = CCMenu::create();
+    closeMenu->setPosition({ kPanelW - 22.f, headerY });
+    m_panel->addChild(closeMenu, 5);
 
-    auto hint = CCLabelBMFont::create("Drag the top strip", "bigFont.fnt");
-    hint->setScale(0.12f);
-    hint->setPosition(CCPointMake(104.f, 36.f));
-    m_header->addChild(hint, 1);
+    auto closeSprite = CCSprite::createWithSpriteFrameName("GJ_closeBtn_001.png");
+    if (!closeSprite) {
+        closeSprite = CCSprite::create("GJ_button_06.png");
+    }
+    closeSprite->setScale(0.55f);
+    auto closeBtn = CCMenuItemSpriteExtra::create(
+        closeSprite, this, menu_selector(HubPopup::onClose)
+    );
+    closeMenu->addChild(closeBtn);
 
-    m_tabsMenu = CCMenu::create();
-    m_tabsMenu->setPosition(CCPointZero);
-    m_header->addChild(m_tabsMenu, 20);
+    auto headerSep = CCDrawNode::create();
+    headerSep->drawSegment(
+        { 8.f,            kPanelH - kHeaderH - 4.f },
+        { kPanelW - 8.f,  kPanelH - kHeaderH - 4.f },
+        0.6f,
+        { 70.f / 255.f, 220.f / 255.f, 220.f / 255.f, 0.5f }
+    );
+    m_panel->addChild(headerSep, 4);
+
+    // ---- Sidebar (left column with tab buttons) ----
+    m_sidebar = CCNode::create();
+    m_sidebar->setAnchorPoint({ 0.f, 0.f });
+    m_sidebar->setContentSize({ kSidebarW, kPanelH - kHeaderH - 8.f });
+    m_sidebar->setPosition({ kPadding, kPadding });
+    m_panel->addChild(m_sidebar, 5);
+
+    auto sidebarBg = CCDrawNode::create();
+    sidebarBg->drawRect(
+        { 0.f, 0.f },
+        { kSidebarW, m_sidebar->getContentSize().height },
+        { 0.07f, 0.09f, 0.13f, 0.55f },
+        1.f,
+        { 70.f / 255.f, 220.f / 255.f, 220.f / 255.f, 0.35f }
+    );
+    m_sidebar->addChild(sidebarBg, 0);
+
+    m_sidebarMenu = CCMenu::create();
+    m_sidebarMenu->setAnchorPoint({ 0.f, 0.f });
+    m_sidebarMenu->setContentSize(m_sidebar->getContentSize());
+    m_sidebarMenu->setPosition({ 0.f, 0.f });
+    m_sidebarMenu->ignoreAnchorPointForPosition(true);
+    m_sidebar->addChild(m_sidebarMenu, 1);
+
+    // ---- Content area (right side) ----
+    auto contentX = kPadding + kSidebarW + kPadding;
+    auto contentW = kPanelW - contentX - kPadding;
+    auto contentH = kPanelH - kHeaderH - 8.f;
+
+    m_content = CCNode::create();
+    m_content->setAnchorPoint({ 0.f, 0.f });
+    m_content->setContentSize({ contentW, contentH });
+    m_content->setPosition({ contentX, kPadding });
+    m_panel->addChild(m_content, 5);
+
+    auto contentBg = CCDrawNode::create();
+    contentBg->drawRect(
+        { 0.f, 0.f },
+        { contentW, contentH },
+        { 0.05f, 0.07f, 0.10f, 0.55f },
+        1.f,
+        { 70.f / 255.f, 220.f / 255.f, 220.f / 255.f, 0.30f }
+    );
+    m_content->addChild(contentBg, 0);
+
+    m_contentMenu = CCMenu::create();
+    m_contentMenu->setAnchorPoint({ 0.f, 0.f });
+    m_contentMenu->setContentSize(m_content->getContentSize());
+    m_contentMenu->setPosition({ 0.f, 0.f });
+    m_contentMenu->ignoreAnchorPointForPosition(true);
+    m_content->addChild(m_contentMenu, 1);
 
     rebuild();
     scheduleUpdate();
@@ -111,39 +167,31 @@ void HubPopup::registerWithTouchDispatcher() {
 }
 
 bool HubPopup::ccTouchBegan(CCTouch* touch, CCEvent*) {
-    if (!m_panel) {
-        return false;
-    }
+    if (!m_panel) return false;
 
-    auto point = convertToNodeSpace(touch->getLocation());
+    auto local = convertToNodeSpace(touch->getLocation());
     auto panelPos = m_panel->getPosition();
-    auto dragRect = CCRectMake(
-        panelPos.x,
-        panelPos.y + kBodyH + (kHeaderH - kDragH),
+    auto headerRect = CCRectMake(
+        panelPos.x - kPanelW / 2.f,
+        panelPos.y + kPanelH / 2.f - kHeaderH,
         kPanelW,
-        kDragH
+        kHeaderH
     );
-
-    if (pointInRect(point, dragRect)) {
+    if (pointInRect(local, headerRect)) {
         m_dragging = true;
-        m_dragOffset = ccpSub(m_panel->getPosition(), point);
+        m_dragOffset = ccpSub(panelPos, local);
         return true;
     }
-
     return false;
 }
 
 void HubPopup::ccTouchMoved(CCTouch* touch, CCEvent*) {
-    if (!m_dragging || !m_panel) {
-        return;
-    }
+    if (!m_dragging || !m_panel) return;
 
     auto win = CCDirector::sharedDirector()->getWinSize();
     auto newPos = ccpAdd(touch->getLocation(), m_dragOffset);
-
-    newPos.x = clampValue(newPos.x, 0.f, win.width - kPanelW);
-    newPos.y = clampValue(newPos.y, 0.f, win.height - kPanelH);
-
+    newPos.x = std::max(kPanelW / 2.f, std::min(newPos.x, win.width  - kPanelW / 2.f));
+    newPos.y = std::max(kPanelH / 2.f, std::min(newPos.y, win.height - kPanelH / 2.f));
     m_panel->setPosition(newPos);
 }
 
@@ -155,75 +203,104 @@ void HubPopup::update(float) {
     refresh();
 }
 
-void HubPopup::rebuild() {
-    if (!m_panel || !m_body || !m_tabsMenu) {
-        return;
+void HubPopup::buildSidebar() {
+    if (!m_sidebarMenu) return;
+    m_sidebarMenu->removeAllChildrenWithCleanup(true);
+
+    struct TabDef { char const* label; Tab tab; };
+    TabDef tabs[] = {
+        { "FPS",    Tab::FPS    },
+        { "Bot",    Tab::BOT    },
+        { "Frame",  Tab::FRAME  },
+        { "Swift",  Tab::SWIFT  },
+        { "About",  Tab::ABOUT  },
+    };
+
+    auto sbSize = m_sidebar->getContentSize();
+    auto column = CCNode::create();
+    column->setAnchorPoint({ 0.5f, 0.5f });
+    column->setContentSize(sbSize);
+    column->setPosition({ sbSize.width / 2.f, sbSize.height / 2.f });
+    column->setLayout(
+        ColumnLayout::create()
+            ->setAxisReverse(true)
+            ->setGap(6.f)
+            ->setAxisAlignment(AxisAlignment::Center)
+            ->setCrossAxisAlignment(AxisAlignment::Center)
+    );
+    m_sidebarMenu->addChild(column);
+
+    for (auto const& t : tabs) {
+        bool active = (t.tab == m_tab);
+        auto btn = hub::ui::makeSidebarBtn(
+            t.label, tabId(t.tab), active,
+            this, menu_selector(HubPopup::onSidebarTab)
+        );
+        column->addChild(btn);
+    }
+    column->updateLayout();
+}
+
+void HubPopup::buildContent() {
+    if (!m_content || !m_contentMenu) return;
+
+    m_contentMenu->removeAllChildrenWithCleanup(true);
+    // Remove any non-menu, non-bg children we added on previous rebuild
+    auto children = m_content->getChildren();
+    if (children) {
+        CCArray* toRemove = CCArray::create();
+        for (int i = 0; i < (int)children->count(); ++i) {
+            auto child = static_cast<CCNode*>(children->objectAtIndex(i));
+            if (child == m_contentMenu) continue;
+            if (dynamic_cast<CCDrawNode*>(child)) continue;
+            toRemove->addObject(child);
+        }
+        for (int i = 0; i < (int)toRemove->count(); ++i) {
+            auto child = static_cast<CCNode*>(toRemove->objectAtIndex(i));
+            child->removeFromParentAndCleanup(true);
+        }
     }
 
-    m_tabsMenu->removeAllChildrenWithCleanup(true);
-    m_body->removeAllChildrenWithCleanup(true);
-
-    m_scroll = nullptr;
-    m_scrollContent = nullptr;
-    m_bodyMenu = nullptr;
     m_statusTop = nullptr;
     m_statusBottom = nullptr;
 
-    auto tabText = (m_tab == Tab::FPS) ? "BOT" : "FPS";
-    auto tabButton = makeTextButton(tabText, this, menu_selector(HubPopup::onTabToggle), 0.30f);
-    tabButton->setPosition(CCPointMake(84.f, 20.f));
-    m_tabsMenu->addChild(tabButton);
-
-    auto close = makeTextButton("X", this, menu_selector(HubPopup::onClose), 0.32f);
-    close->setPosition(CCPointMake(282.f, 20.f));
-    m_tabsMenu->addChild(close);
-
-    float contentHeight = m_tab == Tab::FPS ? 390.f : 700.f;
-
-    m_scrollContent = CCLayer::create();
-    m_scrollContent->setAnchorPoint(CCPointZero);
-    m_scrollContent->setPosition(CCPointZero);
-    m_scrollContent->setContentSize(CCSizeMake(kPanelW, contentHeight));
-
-    m_bodyMenu = CCMenu::create();
-    m_bodyMenu->setPosition(CCPointZero);
-    m_scrollContent->addChild(m_bodyMenu, 0);
-
-    m_scroll = CCScrollView::create(CCSizeMake(kPanelW, kBodyH), m_scrollContent);
-    m_scroll->setPosition(CCPointZero);
-    m_scroll->setDirection(kCCScrollViewDirectionVertical);
-    m_scroll->setBounceable(true);
-    m_scroll->setTouchEnabled(true);
-
-    if (contentHeight > kBodyH) {
-        m_scroll->setContentOffset(m_scroll->minContainerOffset());
-    } else {
-        m_scroll->setContentOffset(CCPointZero);
+    switch (m_tab) {
+        case Tab::FPS:
+            hub::ui::fps::build(m_content, m_contentMenu, m_statusTop, this);
+            break;
+        case Tab::BOT:
+            hub::ui::bot::build(m_content, m_contentMenu, m_statusTop, m_statusBottom, this);
+            break;
+        case Tab::FRAME:
+            hub::ui::frame::build(m_content, m_contentMenu, m_statusTop, this);
+            break;
+        case Tab::SWIFT:
+            hub::ui::swift::build(m_content, m_contentMenu, m_statusTop, this);
+            break;
+        case Tab::ABOUT:
+            hub::ui::about::build(m_content, m_contentMenu, this);
+            break;
     }
+}
 
-    m_body->addChild(m_scroll, 0);
-
-    if (m_tab == Tab::FPS) {
-        hub::ui::fps::build(m_scrollContent, m_bodyMenu, m_statusTop, contentHeight, this);
-    } else {
-        hub::ui::bot::build(m_scrollContent, m_bodyMenu, m_statusTop, m_statusBottom, contentHeight, this);
-    }
-
+void HubPopup::rebuild() {
+    buildSidebar();
+    buildContent();
     refresh();
 }
 
 void HubPopup::refresh() {
-    if (m_tab == Tab::FPS) {
-        hub::ui::fps::refresh(m_statusTop);
-    } else {
-        hub::ui::bot::refresh(m_statusTop, m_statusBottom);
+    switch (m_tab) {
+        case Tab::FPS:   hub::ui::fps::refresh(m_statusTop); break;
+        case Tab::BOT:   hub::ui::bot::refresh(m_statusTop, m_statusBottom); break;
+        case Tab::FRAME: hub::ui::frame::refresh(m_statusTop); break;
+        case Tab::SWIFT: hub::ui::swift::refresh(m_statusTop); break;
+        case Tab::ABOUT: break;
     }
 }
 
 void HubPopup::toggle() {
-    if (s_open && !s_open->getParent()) {
-        s_open = nullptr;
-    }
+    if (s_open && !s_open->getParent()) s_open = nullptr;
 
     if (s_open && s_open->getParent()) {
         s_open->removeFromParentAndCleanup(true);
@@ -232,16 +309,17 @@ void HubPopup::toggle() {
     }
 
     auto scene = CCDirector::sharedDirector()->getRunningScene();
-    if (!scene) {
-        return;
-    }
+    if (!scene) return;
 
     s_open = HubPopup::create();
     scene->addChild(s_open, 99999);
 }
 
-void HubPopup::onTabToggle(CCObject*) {
-    m_tab = (m_tab == Tab::FPS) ? Tab::BOT : Tab::FPS;
+void HubPopup::onSidebarTab(CCObject* sender) {
+    auto item = static_cast<CCMenuItemSpriteExtra*>(sender);
+    auto next = static_cast<Tab>(item->getTag());
+    if (next == m_tab) return;
+    m_tab = next;
     rebuild();
 }
 
@@ -252,44 +330,38 @@ void HubPopup::onClose(CCObject*) {
     }
 }
 
+// ---------- Setting helpers (kept identical so BotManager / main keep working) ----------
+
 void HubPopup::onFpsToggle(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("fps_enabled")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("fps_enabled")) return;
     mod->setSettingValue<bool>("fps_enabled", !mod->getSettingValue<bool>("fps_enabled"));
     refresh();
 }
 
 void HubPopup::onFpsPlus(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("fps_target")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("fps_target")) return;
     mod->setSettingValue<int>(
         "fps_target",
-        clampValue(mod->getSettingValue<int>("fps_target") + 30, 60, 360)
+        hub::ui::clampInt(mod->getSettingValue<int>("fps_target") + 30, 60, 360)
     );
     refresh();
 }
 
 void HubPopup::onFpsMinus(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("fps_target")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("fps_target")) return;
     mod->setSettingValue<int>(
         "fps_target",
-        clampValue(mod->getSettingValue<int>("fps_target") - 30, 60, 360)
+        hub::ui::clampInt(mod->getSettingValue<int>("fps_target") - 30, 60, 360)
     );
     refresh();
 }
 
 void HubPopup::onFpsDefault(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("fps_target")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("fps_target")) return;
     mod->setSettingValue<int>("fps_target", 240);
     refresh();
 }
@@ -310,20 +382,9 @@ void HubPopup::onStop(CCObject*) {
     refresh();
 }
 
-void HubPopup::onSave(CCObject*) {
-    BotManager::shared().saveMacro();
-    refresh();
-}
-
-void HubPopup::onLoad(CCObject*) {
-    BotManager::shared().loadMacro();
-    refresh();
-}
-
-void HubPopup::onClear(CCObject*) {
-    BotManager::shared().clearMacro();
-    refresh();
-}
+void HubPopup::onSave(CCObject*)  { BotManager::shared().saveMacro();  refresh(); }
+void HubPopup::onLoad(CCObject*)  { BotManager::shared().loadMacro();  refresh(); }
+void HubPopup::onClear(CCObject*) { BotManager::shared().clearMacro(); refresh(); }
 
 void HubPopup::onFrameStepToggle(CCObject*) {
     BotManager::shared().toggleFrameStepper();
@@ -337,51 +398,41 @@ void HubPopup::onStep(CCObject*) {
 
 void HubPopup::onIgnoreToggle(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("ignore_inputs")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("ignore_inputs")) return;
     mod->setSettingValue<bool>("ignore_inputs", !mod->getSettingValue<bool>("ignore_inputs"));
     refresh();
 }
 
 void HubPopup::onSwiftToggle(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("swift_enabled")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("swift_enabled")) return;
     mod->setSettingValue<bool>("swift_enabled", !mod->getSettingValue<bool>("swift_enabled"));
     refresh();
 }
 
 void HubPopup::onSwiftPlus(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("swift_clicks")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("swift_clicks")) return;
     mod->setSettingValue<int>(
         "swift_clicks",
-        clampValue(mod->getSettingValue<int>("swift_clicks") + 1, 1, 60)
+        hub::ui::clampInt(mod->getSettingValue<int>("swift_clicks") + 1, 1, 60)
     );
     refresh();
 }
 
 void HubPopup::onSwiftMinus(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("swift_clicks")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("swift_clicks")) return;
     mod->setSettingValue<int>(
         "swift_clicks",
-        clampValue(mod->getSettingValue<int>("swift_clicks") - 1, 1, 60)
+        hub::ui::clampInt(mod->getSettingValue<int>("swift_clicks") - 1, 1, 60)
     );
     refresh();
 }
 
 void HubPopup::onSwiftDefault(CCObject*) {
     auto mod = Mod::get();
-    if (!mod || !mod->hasSetting("swift_clicks")) {
-        return;
-    }
+    if (!mod || !mod->hasSetting("swift_clicks")) return;
     mod->setSettingValue<int>("swift_clicks", 20);
     refresh();
 }

@@ -5,7 +5,7 @@
   "name": "Private FPS Pro",
   "version": "2.1.0",
   "developer": "fling",
-  "description": "PRIVATE mod",
+  "description": "Private FPS unlocker, bot recorder, frame stepper and swift clicks for GD 2.2 (Android).",
   "resources": {
     "sprites": [
       "resources/icon.png"
@@ -13,46 +13,67 @@
   },
   "settings": {
     "fps_enabled": {
+      "name": "FPS unlocker",
+      "description": "Enable the FPS unlocker.",
       "type": "bool",
       "default": true
     },
     "fps_target": {
+      "name": "Target FPS",
+      "description": "Target frame rate when the unlocker is enabled.",
       "type": "int",
       "default": 240,
       "min": 60,
-      "max": 360
+      "max": 360,
+      "control": { "slider": true, "slider-step": 5 }
     },
     "bot_recording": {
+      "name": "Bot is recording",
+      "description": "Internal flag set by the hub. Toggle from the in-game menu.",
       "type": "bool",
       "default": false
     },
     "bot_playing": {
+      "name": "Bot is playing",
+      "description": "Internal flag set by the hub. Toggle from the in-game menu.",
       "type": "bool",
       "default": false
     },
     "ignore_inputs": {
+      "name": "Ignore physical inputs while playing",
+      "description": "Drop player taps while the bot is replaying a macro.",
       "type": "bool",
       "default": true
     },
     "frame_stepper": {
+      "name": "Frame stepper",
+      "description": "Pause gameplay updates and advance one frame at a time.",
       "type": "bool",
       "default": false
     },
     "cbf_boost": {
+      "name": "CBF boost",
+      "description": "Click-burst factor for grouping near-simultaneous inputs.",
       "type": "int",
       "default": 3,
       "min": 1,
-      "max": 10
+      "max": 10,
+      "control": { "slider": true }
     },
     "swift_enabled": {
+      "name": "Swift clicks",
+      "description": "Repeat presses rapidly while held.",
       "type": "bool",
       "default": true
     },
     "swift_clicks": {
+      "name": "Swift click count",
+      "description": "How many synthetic clicks per second when swift is on.",
       "type": "int",
       "default": 20,
       "min": 1,
-      "max": 60
+      "max": 60,
+      "control": { "slider": true }
     }
   }
 }

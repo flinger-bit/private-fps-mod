@@ -1,31 +1,34 @@
 #pragma once
 
 #include <Geode/Geode.hpp>
+#include <Geode/cocos/extensions/GUI/CCScale9Sprite.h>
 
 using namespace geode::prelude;
 
 class HubPopup : public CCLayerColor {
-protected:
+public:
     enum class Tab {
-        FPS = 0,
-        BOT = 1
+        FPS    = 0,
+        BOT    = 1,
+        FRAME  = 2,
+        SWIFT  = 3,
+        ABOUT  = 4
     };
 
+protected:
     Tab m_tab = Tab::FPS;
 
-    CCLayerColor* m_panel = nullptr;
-    CCLayerColor* m_header = nullptr;
-    CCLayer* m_body = nullptr;
-
-    CCScrollView* m_scroll = nullptr;
-    CCLayer* m_scrollContent = nullptr;
-    CCMenu* m_bodyMenu = nullptr;
-
-    CCMenu* m_tabsMenu = nullptr;
-    CCLabelBMFont* m_statusTop = nullptr;
+    cocos2d::extension::CCScale9Sprite* m_panel = nullptr;
+    CCDrawNode*    m_border       = nullptr;
+    CCNode*        m_sidebar      = nullptr;
+    CCMenu*        m_sidebarMenu  = nullptr;
+    CCNode*        m_content      = nullptr;
+    CCMenu*        m_contentMenu  = nullptr;
+    CCLabelBMFont* m_title        = nullptr;
+    CCLabelBMFont* m_statusTop    = nullptr;
     CCLabelBMFont* m_statusBottom = nullptr;
 
-    bool m_dragging = false;
+    bool    m_dragging   = false;
     CCPoint m_dragOffset = CCPointZero;
 
     bool init() override;
@@ -37,6 +40,8 @@ protected:
 
     void update(float) override;
 
+    void buildSidebar();
+    void buildContent();
     void rebuild();
     void refresh();
 
@@ -44,7 +49,9 @@ public:
     static HubPopup* create();
     static void toggle();
 
-    void onTabToggle(CCObject*);
+    Tab currentTab() const { return m_tab; }
+
+    void onSidebarTab(CCObject*);
     void onClose(CCObject*);
 
     void onFpsToggle(CCObject*);
