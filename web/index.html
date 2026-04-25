@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Private FPS Pro - Geode Mod</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #141821;
+    --panel-2: #1b202b;
+    --border: #262c3a;
+    --text: #e6e8ee;
+    --muted: #8b93a7;
+    --accent: #5ac8fa;
+    --accent-2: #7c5cff;
+    --good: #4ade80;
+    --warn: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: radial-gradient(1200px 600px at 20% -10%, #1a1f2f 0%, var(--bg) 60%), var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 960px; margin: 0 auto; padding: 48px 24px 80px; }
+  header {
+    display: flex; align-items: center; gap: 18px; margin-bottom: 32px;
+  }
+  .logo {
+    width: 64px; height: 64px; border-radius: 16px;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    display: grid; place-items: center; font-weight: 800; font-size: 24px; color: #0b0d12;
+    box-shadow: 0 10px 30px rgba(124,92,255,.25);
+  }
+  h1 { margin: 0; font-size: 28px; letter-spacing: -.01em; }
+  .sub { color: var(--muted); font-size: 14px; margin-top: 4px; }
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+  .card {
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 18px 16px;
+  }
+  .card h3 { margin: 0 0 8px; font-size: 15px; color: var(--accent); letter-spacing: .02em; text-transform: uppercase; }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px dashed var(--border); font-size: 14px; }
+  .kv:last-child { border-bottom: 0; }
+  .kv span:first-child { color: var(--muted); }
+  .pill {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    background: rgba(90,200,250,.12); color: var(--accent); font-size: 12px; font-weight: 600;
+    border: 1px solid rgba(90,200,250,.25);
+  }
+  section { margin-top: 32px; }
+  section h2 { font-size: 18px; margin: 0 0 12px; }
+  pre {
+    background: #0a0c11; border: 1px solid var(--border); padding: 14px 16px;
+    border-radius: 10px; overflow-x: auto; font-size: 13px;
+    color: #c8d0e0;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ul.features { padding-left: 18px; margin: 6px 0 0; }
+  ul.features li { margin: 4px 0; color: var(--text); }
+  .muted { color: var(--muted); }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  footer { margin-top: 48px; color: var(--muted); font-size: 12px; text-align: center; }
+  .banner {
+    background: linear-gradient(90deg, rgba(124,92,255,.10), rgba(90,200,250,.10));
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px 16px; font-size: 14px; color: var(--text);
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">PP</div>
+      <div>
+        <h1>Private FPS Pro <span class="pill">Geode Mod</span></h1>
+        <div class="sub">Geometry Dash · Android · Geode SDK 5.5.3</div>
+      </div>
+    </header>
+
+    <div class="banner">
+      This project is a native C++ mod for Geometry Dash on Android, built with the
+      <a href="https://geode-sdk.org/" target="_blank" rel="noopener">Geode SDK</a>.
+      It is not a web application — it compiles to a <code>.geode</code> package that is
+      sideloaded into the game on a phone.
+    </div>
+
+    <div class="grid" style="margin-top:18px">
+      <div class="card">
+        <h3>Mod Info</h3>
+        <div class="kv"><span>ID</span><span>fling.private-pro</span></div>
+        <div class="kv"><span>Version</span><span>2.1.0</span></div>
+        <div class="kv"><span>Developer</span><span>fling</span></div>
+        <div class="kv"><span>Geode</span><span>5.5.3</span></div>
+        <div class="kv"><span>GD (Android)</span><span>2.2081</span></div>
+        <div class="kv"><span>C++ Standard</span><span>C++23</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Features</h3>
+        <ul class="features">
+          <li>FPS unlocker (target 60–360)</li>
+          <li>Bot recorder &amp; player</li>
+          <li>Frame stepper</li>
+          <li>CBF boost (1–10)</li>
+          <li>Swift clicks (1–60)</li>
+          <li>In-game hub popup (pause menu button)</li>
+        </ul>
+      </div>
+
+      <div class="card">
+        <h3>Project Layout</h3>
+        <div class="kv"><span>src/main.cpp</span><span class="muted">entry / hooks</span></div>
+        <div class="kv"><span>src/bot/</span><span class="muted">macro &amp; bot logic</span></div>
+        <div class="kv"><span>src/ui/</span><span class="muted">hub popup &amp; tabs</span></div>
+        <div class="kv"><span>resources/</span><span class="muted">sprites</span></div>
+        <div class="kv"><span>mod.json</span><span class="muted">Geode manifest</span></div>
+      </div>
+    </div>
+
+    <section>
+      <h2>Build (locally with Geode CLI)</h2>
+      <p class="muted">The Geode SDK and Android NDK toolchain are required. Install the Geode CLI, then:</p>
+<pre><code>export GEODE_SDK=/path/to/geode-sdk
+geode sdk install-binaries
+geode build -p android64</code></pre>
+      <p class="muted">Or use the included GitHub Actions workflow at <code>.github/workflows/build.yml</code> which runs <code>geode-sdk/build-geode-mod</code> and uploads a <code>.geode</code> artifact.</p>
+    </section>
+
+    <section>
+      <h2>Install on Device</h2>
+      <ol>
+        <li>Install Geometry Dash 2.2 and the Geode loader on Android.</li>
+        <li>Copy the produced <code>fling.private-pro.geode</code> file into the Geode mods folder.</li>
+        <li>Launch GD, pause any level, and tap the hub icon to open the mod menu.</li>
+      </ol>
+    </section>
+
+    <footer>
+      Served from Replit · static info page for a Geode native mod project
+    </footer>
+  </div>
+</body>
+</html>
