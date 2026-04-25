@@ -1,7 +1,6 @@
 #pragma once
 
 #include <Geode/Geode.hpp>
-#include <Geode/cocos/extensions/GUI/CCScale9Sprite.h>
 
 using namespace geode::prelude;
 

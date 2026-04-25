@@ -11,8 +11,6 @@
 
 #include <Geode/binding/ButtonSprite.hpp>
 #include <Geode/binding/CCMenuItemSpriteExtra.hpp>
-#include <Geode/cocos/draw_nodes/CCDrawNode.h>
-#include <Geode/cocos/extensions/GUI/CCScale9Sprite.h>
 
 using namespace geode::prelude;
 using cocos2d::extension::CCScale9Sprite;
