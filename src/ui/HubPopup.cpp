@@ -56,35 +56,42 @@ bool HubPopup::init() {
     setTouchEnabled(true);
     setTag(kHubTag);
 
-    // ---- Panel: real GD CCScale9Sprite background, with fallbacks ----
-    m_panel = CCScale9Sprite::create("GJ_square02.png");
-    if (!m_panel) {
-        m_panel = CCScale9Sprite::create("GJ_square01.png");
+    // Restore last-selected tab from persistent settings (Eclipse pattern)
+    if (auto mod = Mod::get()) {
+        int saved = mod->getSavedValue<int>("hub.current_tab", 0);
+        if (saved >= 0 && saved <= static_cast<int>(Tab::ABOUT)) {
+            m_tab = static_cast<Tab>(saved);
+        }
     }
-    if (!m_panel) {
-        m_panel = CCScale9Sprite::createWithSpriteFrameName("square02_001.png");
+
+    auto const center = CCPoint{ win.width / 2.f, win.height / 2.f };
+
+    // ---- Layered NineSlice backgrounds (EclipseMenu style) ---------------
+    // Outer cyan-tinted slab acts as the visible 2px border.
+    m_outline = hub::ui::makeNineSlice(
+        { kPanelW + 6.f, kPanelH + 6.f },
+        hub::ui::theme::accent(),
+        255
+    );
+    if (m_outline) {
+        m_outline->setPosition(center);
+        addChild(m_outline, 0);
     }
+
+    // Main dark panel sits 3px inside the outline.
+    m_panel = hub::ui::makeNineSlice(
+        { kPanelW, kPanelH },
+        hub::ui::theme::panelMain(),
+        245
+    );
     if (!m_panel) {
         log::error(
             "HubPopup: every CCScale9Sprite candidate returned null; aborting init"
         );
         return false;
     }
-    m_panel->setContentSize({ kPanelW, kPanelH });
-    m_panel->setPosition({ win.width / 2.f, win.height / 2.f });
-    m_panel->setOpacity(235);
+    m_panel->setPosition(center);
     addChild(m_panel, 1);
-
-    // ---- Border drawn with CCDrawNode (cyan accent) ----
-    m_border = CCDrawNode::create();
-    m_border->drawRect(
-        { -kPanelW / 2.f + 2.f, -kPanelH / 2.f + 2.f },
-        {  kPanelW / 2.f - 2.f,  kPanelH / 2.f - 2.f },
-        { 0, 0, 0, 0 },
-        2.f,
-        { 70.f / 255.f, 220.f / 255.f, 220.f / 255.f, 0.9f }
-    );
-    m_panel->addChild(m_border, 2);
 
     // ---- Header inside panel-local coordinates ----
     auto headerY = kPanelH - kHeaderH / 2.f - 4.f;
@@ -123,21 +130,23 @@ bool HubPopup::init() {
     m_panel->addChild(headerSep, 4);
 
     // ---- Sidebar (left column with tab buttons) ----
+    auto const sidebarH = kPanelH - kHeaderH - 8.f;
+
     m_sidebar = CCNode::create();
     m_sidebar->setAnchorPoint({ 0.f, 0.f });
-    m_sidebar->setContentSize({ kSidebarW, kPanelH - kHeaderH - 8.f });
+    m_sidebar->setContentSize({ kSidebarW, sidebarH });
     m_sidebar->setPosition({ kPadding, kPadding });
     m_panel->addChild(m_sidebar, 5);
 
-    auto sidebarBg = CCDrawNode::create();
-    sidebarBg->drawRect(
-        { 0.f, 0.f },
-        { kSidebarW, m_sidebar->getContentSize().height },
-        { 0.07f, 0.09f, 0.13f, 0.55f },
-        1.f,
-        { 70.f / 255.f, 220.f / 255.f, 220.f / 255.f, 0.35f }
+    m_sidebarBg = hub::ui::makeNineSlice(
+        { kSidebarW, sidebarH },
+        hub::ui::theme::panelInner(),
+        220
     );
-    m_sidebar->addChild(sidebarBg, 0);
+    if (m_sidebarBg) {
+        m_sidebarBg->setPosition({ kSidebarW / 2.f, sidebarH / 2.f });
+        m_sidebar->addChild(m_sidebarBg, 0);
+    }
 
     m_sidebarMenu = CCMenu::create();
     m_sidebarMenu->setAnchorPoint({ 0.f, 0.f });
@@ -149,7 +158,7 @@ bool HubPopup::init() {
     // ---- Content area (right side) ----
     auto contentX = kPadding + kSidebarW + kPadding;
     auto contentW = kPanelW - contentX - kPadding;
-    auto contentH = kPanelH - kHeaderH - 8.f;
+    auto contentH = sidebarH;
 
     m_content = CCNode::create();
     m_content->setAnchorPoint({ 0.f, 0.f });
@@ -157,15 +166,15 @@ bool HubPopup::init() {
     m_content->setPosition({ contentX, kPadding });
     m_panel->addChild(m_content, 5);
 
-    auto contentBg = CCDrawNode::create();
-    contentBg->drawRect(
-        { 0.f, 0.f },
+    m_contentBg = hub::ui::makeNineSlice(
         { contentW, contentH },
-        { 0.05f, 0.07f, 0.10f, 0.55f },
-        1.f,
-        { 70.f / 255.f, 220.f / 255.f, 220.f / 255.f, 0.30f }
+        hub::ui::theme::panelInner(),
+        220
     );
-    m_content->addChild(contentBg, 0);
+    if (m_contentBg) {
+        m_contentBg->setPosition({ contentW / 2.f, contentH / 2.f });
+        m_content->addChild(m_contentBg, 0);
+    }
 
     m_contentMenu = CCMenu::create();
     m_contentMenu->setAnchorPoint({ 0.f, 0.f });
@@ -347,6 +356,9 @@ void HubPopup::onSidebarTab(CCObject* sender) {
     auto next = static_cast<Tab>(item->getTag());
     if (next == m_tab) return;
     m_tab = next;
+    if (auto mod = Mod::get()) {
+        mod->setSavedValue<int>("hub.current_tab", static_cast<int>(m_tab));
+    }
     rebuild();
 }
 

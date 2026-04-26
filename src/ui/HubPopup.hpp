@@ -17,8 +17,10 @@ public:
 protected:
     Tab m_tab = Tab::FPS;
 
-    cocos2d::extension::CCScale9Sprite* m_panel = nullptr;
-    CCDrawNode*    m_border       = nullptr;
+    cocos2d::extension::CCScale9Sprite* m_outline    = nullptr; // cyan border layer
+    cocos2d::extension::CCScale9Sprite* m_panel      = nullptr; // main dark panel
+    cocos2d::extension::CCScale9Sprite* m_sidebarBg  = nullptr; // inner sidebar bg
+    cocos2d::extension::CCScale9Sprite* m_contentBg  = nullptr; // inner content bg
     CCNode*        m_sidebar      = nullptr;
     CCMenu*        m_sidebarMenu  = nullptr;
     CCNode*        m_content      = nullptr;
