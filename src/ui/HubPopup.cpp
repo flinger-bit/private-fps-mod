@@ -234,18 +234,22 @@ void HubPopup::buildSidebar() {
     };
 
     auto sbSize = m_sidebar->getContentSize();
-    auto column = CCNode::create();
-    column->setAnchorPoint({ 0.5f, 0.5f });
-    column->setContentSize(sbSize);
-    column->setPosition({ sbSize.width / 2.f, sbSize.height / 2.f });
-    column->setLayout(
+
+    // CCMenu only routes touches to CCMenuItem children that are *direct*
+    // descendants. The previous version wrapped the buttons in an intermediate
+    // CCNode ("column"), which silently swallowed every tap. Apply the layout
+    // to m_sidebarMenu itself and parent the buttons directly to it.
+    m_sidebarMenu->setContentSize(sbSize);
+    m_sidebarMenu->setPosition({ sbSize.width / 2.f, sbSize.height / 2.f });
+    m_sidebarMenu->setAnchorPoint({ 0.5f, 0.5f });
+
+    m_sidebarMenu->setLayout(
         ColumnLayout::create()
             ->setAxisReverse(true)
             ->setGap(6.f)
             ->setAxisAlignment(AxisAlignment::Center)
             ->setCrossAxisAlignment(AxisAlignment::Center)
     );
-    m_sidebarMenu->addChild(column);
 
     for (auto const& t : tabs) {
         bool active = (t.tab == m_tab);
@@ -253,9 +257,10 @@ void HubPopup::buildSidebar() {
             t.label, tabId(t.tab), active,
             this, menu_selector(HubPopup::onSidebarTab)
         );
-        column->addChild(btn);
+        m_sidebarMenu->addChild(btn);
     }
-    column->updateLayout();
+
+    m_sidebarMenu->updateLayout();
 }
 
 void HubPopup::buildContent() {
